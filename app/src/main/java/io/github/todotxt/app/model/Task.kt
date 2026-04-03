@@ -1,6 +1,6 @@
 package io.github.todotxt.app.model
 
-import java.util.regex.Pattern
+import java.time.LocalDate
 
 /**
  * A single todo.txt task, stored as a list of typed tokens.
@@ -135,32 +135,29 @@ class Task(text: String) {
     // ── Companion / parser ────────────────────────────────────────────────
 
     companion object {
-        private val DATE_PATTERN     = Pattern.compile("\\d{4}-\\d{2}-\\d{2}")
-        private val PRIORITY_PATTERN = Pattern.compile("\\(([A-Z])\\)")
-        private val CONTEXT_PATTERN  = Pattern.compile("@(\\S+)")
-        private val PROJECT_PATTERN  = Pattern.compile("\\+(\\S+)")
-        private val DUE_PATTERN      = Pattern.compile("[Dd][Uu][Ee]:(\\d{4}-\\d{2}-\\d{2})")
-        private val THRESHOLD_PATTERN= Pattern.compile("[Tt]:(\\d{4}-\\d{2}-\\d{2})")
-        private val REC_PATTERN      = Pattern.compile("[Rr][Ee][Cc]:(\\+?\\d*[dDwWmMyY])")
-        private val EXT_PATTERN      = Pattern.compile("([^:\\s]+):([^:\\s]+)")
-
-        /** Split on spaces, preserving the original space tokens. */
-        private fun lex(text: String): List<String> = text.split(' ')
+        private val DATE_PATTERN      = Regex("\\d{4}-\\d{2}-\\d{2}")
+        private val PRIORITY_PATTERN  = Regex("\\(([A-Z])\\)")
+        private val CONTEXT_PATTERN   = Regex("@(\\S+)")
+        private val PROJECT_PATTERN   = Regex("\\+(\\S+)")
+        private val DUE_PATTERN       = Regex("[Dd][Uu][Ee]:(\\d{4}-\\d{2}-\\d{2})")
+        private val THRESHOLD_PATTERN = Regex("[Tt]:(\\d{4}-\\d{2}-\\d{2})")
+        private val REC_PATTERN       = Regex("[Rr][Ee][Cc]:(\\+?\\d*[dDwWmMyY])")
+        private val EXT_PATTERN       = Regex("([^:\\s]+):([^:\\s]+)")
 
         fun parse(text: String): MutableList<TToken> {
             val tokens = mutableListOf<TToken>()
-            var words = lex(text)
+            var words = text.split(' ')
 
             // 1. Completion marker
             if (words.firstOrNull() == "x") {
                 tokens += CompletedToken
                 words = words.drop(1)
                 // Completion date
-                if (words.isNotEmpty() && DATE_PATTERN.matcher(words[0]).matches()) {
+                if (words.isNotEmpty() && DATE_PATTERN.matches(words[0])) {
                     tokens += CompletedDateToken(words[0])
                     words = words.drop(1)
                     // Creation date (only present alongside completion date)
-                    if (words.isNotEmpty() && DATE_PATTERN.matcher(words[0]).matches()) {
+                    if (words.isNotEmpty() && DATE_PATTERN.matches(words[0])) {
                         tokens += CreateDateToken(words[0])
                         words = words.drop(1)
                     }
@@ -169,15 +166,15 @@ class Task(text: String) {
 
             // 2. Priority (only for incomplete tasks)
             if (words.isNotEmpty()) {
-                val m = PRIORITY_PATTERN.matcher(words[0])
-                if (m.matches()) {
-                    tokens += PriorityToken(Priority.fromCode(m.group(1)!!))
+                val m = PRIORITY_PATTERN.matchEntire(words[0])
+                if (m != null) {
+                    tokens += PriorityToken(Priority.fromCode(m.groupValues[1]))
                     words = words.drop(1)
                 }
             }
 
             // 3. Creation date
-            if (words.isNotEmpty() && DATE_PATTERN.matcher(words[0]).matches()) {
+            if (words.isNotEmpty() && DATE_PATTERN.matches(words[0])) {
                 tokens += CreateDateToken(words[0])
                 words = words.drop(1)
             }
@@ -186,31 +183,23 @@ class Task(text: String) {
             for (word in words) {
                 when {
                     word.isEmpty() -> tokens += WhitespaceToken
-                    DUE_PATTERN.matcher(word).matches() -> {
-                        val m = DUE_PATTERN.matcher(word); m.matches()
-                        tokens += DueDateToken(m.group(1)!!)
+                    else -> {
+                        val due = DUE_PATTERN.matchEntire(word)
+                        val thr = if (due == null) THRESHOLD_PATTERN.matchEntire(word) else null
+                        val rec = if (thr == null && due == null) REC_PATTERN.matchEntire(word) else null
+                        val ctx = if (rec == null && thr == null && due == null) CONTEXT_PATTERN.matchEntire(word) else null
+                        val prj = if (ctx == null && rec == null && thr == null && due == null) PROJECT_PATTERN.matchEntire(word) else null
+                        val ext = if (prj == null && ctx == null && rec == null && thr == null && due == null) EXT_PATTERN.matchEntire(word) else null
+                        when {
+                            due != null -> tokens += DueDateToken(due.groupValues[1])
+                            thr != null -> tokens += ThresholdDateToken(thr.groupValues[1])
+                            rec != null -> tokens += RecurrenceToken(rec.groupValues[1])
+                            ctx != null -> tokens += ContextToken(ctx.groupValues[1])
+                            prj != null -> tokens += ProjectToken(prj.groupValues[1])
+                            ext != null -> tokens += ExtToken(ext.groupValues[1], ext.groupValues[2])
+                            else        -> tokens += TextToken(word)
+                        }
                     }
-                    THRESHOLD_PATTERN.matcher(word).matches() -> {
-                        val m = THRESHOLD_PATTERN.matcher(word); m.matches()
-                        tokens += ThresholdDateToken(m.group(1)!!)
-                    }
-                    REC_PATTERN.matcher(word).matches() -> {
-                        val m = REC_PATTERN.matcher(word); m.matches()
-                        tokens += RecurrenceToken(m.group(1)!!)
-                    }
-                    CONTEXT_PATTERN.matcher(word).matches() -> {
-                        val m = CONTEXT_PATTERN.matcher(word); m.matches()
-                        tokens += ContextToken(m.group(1)!!)
-                    }
-                    PROJECT_PATTERN.matcher(word).matches() -> {
-                        val m = PROJECT_PATTERN.matcher(word); m.matches()
-                        tokens += ProjectToken(m.group(1)!!)
-                    }
-                    EXT_PATTERN.matcher(word).matches() -> {
-                        val m = EXT_PATTERN.matcher(word); m.matches()
-                        tokens += ExtToken(m.group(1)!!, m.group(2)!!)
-                    }
-                    else -> tokens += TextToken(word)
                 }
             }
             return tokens
@@ -225,44 +214,16 @@ class Task(text: String) {
                 val clean = interval.removePrefix("+").lowercase()
                 val amount = clean.dropLast(1).toInt()
                 val unit = clean.last()
-                val parts = fromDate.split("-")
-                var year  = parts[0].toInt()
-                var month = parts[1].toInt()
-                var day   = parts[2].toInt()
-                when (unit) {
-                    'd' -> { val total = dayOfYear(year, month, day) + amount
-                              val r = fromDayOfYear(year, total); year = r.first; month = r.second; day = r.third }
-                    'w' -> { val total = dayOfYear(year, month, day) + amount * 7
-                              val r = fromDayOfYear(year, total); year = r.first; month = r.second; day = r.third }
-                    'm' -> { month += amount
-                              while (month > 12) { month -= 12; year++ }
-                              day = minOf(day, daysInMonth(year, month)) }
-                    'y' -> { year += amount
-                              day = minOf(day, daysInMonth(year, month)) }
+                val base = LocalDate.parse(fromDate)
+                val result = when (unit) {
+                    'd' -> base.plusDays(amount.toLong())
+                    'w' -> base.plusWeeks(amount.toLong())
+                    'm' -> base.plusMonths(amount.toLong())
+                    'y' -> base.plusYears(amount.toLong())
                     else -> return null
                 }
-                "%04d-%02d-%02d".format(year, month, day)
+                result.toString()
             } catch (e: Exception) { null }
-        }
-
-        private fun isLeapYear(y: Int) = (y % 4 == 0 && y % 100 != 0) || y % 400 == 0
-        private fun daysInMonth(y: Int, m: Int): Int {
-            val days = intArrayOf(0,31,28,31,30,31,30,31,31,30,31,30,31)
-            return if (m == 2 && isLeapYear(y)) 29 else days[m]
-        }
-        private fun dayOfYear(y: Int, m: Int, d: Int): Int {
-            var n = d
-            for (i in 1 until m) n += daysInMonth(y, i)
-            return n
-        }
-        private fun fromDayOfYear(startYear: Int, dayOfYear: Int): Triple<Int, Int, Int> {
-            var y = startYear; var remaining = dayOfYear
-            val diy = if (isLeapYear(y)) 366 else 365
-            var daysInYear = diy
-            while (remaining > daysInYear) { remaining -= daysInYear; y++; daysInYear = if (isLeapYear(y)) 366 else 365 }
-            var m = 1
-            while (remaining > daysInMonth(y, m)) { remaining -= daysInMonth(y, m); m++ }
-            return Triple(y, m, remaining)
         }
     }
 }

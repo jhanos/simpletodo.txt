@@ -13,12 +13,14 @@ import android.widget.TextView
 import android.widget.Toast
 import io.github.todotxt.app.R
 import io.github.todotxt.app.model.SortField
+import io.github.todotxt.app.model.Task
 import io.github.todotxt.app.model.TaskItem
 import io.github.todotxt.app.model.TodoList
 import io.github.todotxt.app.storage.DebugLog
 import io.github.todotxt.app.storage.FileStorage
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
+import java.util.concurrent.atomic.AtomicBoolean
 
 class MainActivity : Activity() {
 
@@ -45,7 +47,7 @@ class MainActivity : Activity() {
     private lateinit var emptyView: TextView
 
     // True while a background write is in flight — suppress reloads during that window
-    @Volatile private var isSaving = false
+    private val isSaving = AtomicBoolean(false)
 
     // Current filter/sort state
     private var sortField      = SortField.PRIORITY
@@ -111,7 +113,7 @@ class MainActivity : Activity() {
         when (requestCode) {
             REQ_ADD_TASK -> if (resultCode == RESULT_OK) {
                 val raw = data?.getStringExtra(AddEditActivity.EXTRA_TASK_TEXT) ?: return
-                todoList.add(io.github.todotxt.app.model.Task(raw))
+                todoList.add(Task(raw))
                 saveTodoFile()
                 refreshList()
             }
@@ -119,7 +121,7 @@ class MainActivity : Activity() {
                 val raw     = data?.getStringExtra(AddEditActivity.EXTRA_TASK_TEXT) ?: return
                 val oldText = data.getStringExtra(AddEditActivity.EXTRA_OLD_TASK_TEXT) ?: return
                 val oldTask = todoList.getAll().firstOrNull { it.text == oldText } ?: return
-                todoList.update(oldTask, io.github.todotxt.app.model.Task(raw))
+                todoList.update(oldTask, Task(raw))
                 saveTodoFile()
                 refreshList()
             }
@@ -178,7 +180,7 @@ class MainActivity : Activity() {
         // so a concurrent loadTodoFile() cannot race with our write.
         val archivedLines = archived.map { it.text }
         val todoLines = todoList.toLines()
-        isSaving = true
+        isSaving.set(true)
         Thread {
             try {
                 val treeUri = prefs().getString(PREF_TREE_URI, null)?.let { Uri.parse(it) }
@@ -205,7 +207,7 @@ class MainActivity : Activity() {
                     Toast.makeText(this, getString(R.string.archive_done, archived.size), Toast.LENGTH_SHORT).show()
                 }
             } finally {
-                isSaving = false
+                isSaving.set(false)
             }
         }.start()
     }
@@ -235,7 +237,7 @@ class MainActivity : Activity() {
     // ── File I/O (always on a background thread) ──────────────────────────
 
     private fun loadTodoFile() {
-        if (isSaving) {
+        if (isSaving.get()) {
             DebugLog.d(this, "loadTodoFile: skipped — write in flight")
             return
         }
@@ -245,7 +247,7 @@ class MainActivity : Activity() {
             return
         }
         Thread {
-            if (isSaving) {
+            if (isSaving.get()) {
                 DebugLog.d(this, "loadTodoFile: skipped on thread — write in flight")
                 return@Thread
             }
@@ -276,7 +278,7 @@ class MainActivity : Activity() {
         // Snapshot the lines on the main thread before handing off
         val lines = todoList.toLines()
         val treeUri = prefs().getString(PREF_TREE_URI, null)?.let { Uri.parse(it) } ?: return
-        isSaving = true
+        isSaving.set(true)
         Thread {
             try {
                 val uri = FileStorage.findFile(this, treeUri, "todo.txt") ?: return@Thread
@@ -285,7 +287,7 @@ class MainActivity : Activity() {
                     Toast.makeText(this, R.string.save_error, Toast.LENGTH_SHORT).show()
                 }
             } finally {
-                isSaving = false
+                isSaving.set(false)
             }
         }.start()
     }

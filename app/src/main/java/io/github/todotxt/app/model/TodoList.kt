@@ -157,32 +157,23 @@ class TodoList {
             true
         }
 
-        val sorted = when (sortField) {
-            SortField.PRIORITY       -> filtered.sortedWith(compareBy({ it.priority.ordinal }, { it.text }))
-            SortField.PROJECT        -> filtered.sortedWith(compareBy({ it.projects.firstOrNull() ?: "~" }, { it.text }))
-            SortField.CONTEXT        -> filtered.sortedWith(compareBy({ it.contexts.firstOrNull() ?: "~" }, { it.text }))
-            SortField.DUE_DATE       -> filtered.sortedWith(compareBy({ it.dueDate ?: "9999-99-99" }, { it.text }))
-            SortField.THRESHOLD_DATE -> filtered.sortedWith(compareBy({ it.thresholdDate ?: "9999-99-99" }, { it.text }))
-            SortField.NONE           -> filtered
-        }
-
         return when (sortField) {
-            SortField.PRIORITY -> groupBy(sorted) { task ->
-                if (task.priority == Priority.NONE) "No priority" else "(${task.priority.code})"
-            }
-            SortField.PROJECT -> groupBy(sorted) { task ->
-                task.projects.firstOrNull() ?: "No project"
-            }
-            SortField.CONTEXT -> groupBy(sorted) { task ->
-                task.contexts.firstOrNull() ?: "No context"
-            }
-            SortField.DUE_DATE -> groupBy(sorted) { task ->
-                task.dueDate ?: "No due date"
-            }
-            SortField.THRESHOLD_DATE -> groupBy(sorted) { task ->
-                task.thresholdDate ?: "No threshold"
-            }
-            SortField.NONE -> sorted.map { TaskItem(it) }
+            SortField.PRIORITY -> groupBy(
+                filtered.sortedWith(compareBy({ it.priority.ordinal }, { it.text }))
+            ) { if (it.priority == Priority.NONE) "No priority" else "(${it.priority.code})" }
+            SortField.PROJECT -> groupBy(
+                filtered.sortedWith(compareBy({ it.projects.firstOrNull() ?: "~" }, { it.text }))
+            ) { it.projects.firstOrNull() ?: "No project" }
+            SortField.CONTEXT -> groupBy(
+                filtered.sortedWith(compareBy({ it.contexts.firstOrNull() ?: "~" }, { it.text }))
+            ) { it.contexts.firstOrNull() ?: "No context" }
+            SortField.DUE_DATE -> groupBy(
+                filtered.sortedWith(compareBy({ it.dueDate ?: "9999-99-99" }, { it.text }))
+            ) { it.dueDate ?: "No due date" }
+            SortField.THRESHOLD_DATE -> groupBy(
+                filtered.sortedWith(compareBy({ it.thresholdDate ?: "9999-99-99" }, { it.text }))
+            ) { it.thresholdDate ?: "No threshold" }
+            SortField.NONE -> filtered.map { TaskItem(it) }
         }
     }
 

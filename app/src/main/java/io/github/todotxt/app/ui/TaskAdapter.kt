@@ -48,6 +48,14 @@ private object PassthroughLinkMovementMethod : LinkMovementMethod() {
     }
 }
 
+private class TaskViewHolder(view: View) {
+    val taskText: TextView      = view.findViewById(R.id.taskText)
+    val priorityBadge: TextView = view.findViewById(R.id.priorityBadge)
+    val badgeSpacer: Space      = view.findViewById(R.id.badgeSpacer)
+    val dueDateText: TextView   = view.findViewById(R.id.dueDateText)
+    val completedCheck: CheckBox = view.findViewById(R.id.completedCheck)
+}
+
 class TaskAdapter(
     private val context: Context,
     private val onToggleComplete: (taskItem: TaskItem) -> Unit,
@@ -55,9 +63,12 @@ class TaskAdapter(
     private val onDelete: (taskItem: TaskItem) -> Unit
 ) : BaseAdapter() {
 
-    private val ITEM_TYPE_HEADER = 0
-    private val ITEM_TYPE_TASK   = 1
+    companion object {
+        private const val ITEM_TYPE_HEADER = 0
+        private const val ITEM_TYPE_TASK   = 1
+    }
 
+    private val inflater = LayoutInflater.from(context)
     private var items: List<VisibleItem> = emptyList()
 
     fun setItems(newItems: List<VisibleItem>) {
@@ -74,7 +85,6 @@ class TaskAdapter(
     override fun isEnabled(position: Int): Boolean = items[position] is TaskItem
 
     override fun getView(position: Int, convertView: View?, parent: ViewGroup): View {
-        val inflater = LayoutInflater.from(context)
         return when (val item = items[position]) {
             is HeaderItem -> {
                 val view = convertView
@@ -83,50 +93,52 @@ class TaskAdapter(
                 view
             }
             is TaskItem -> {
-                val view = convertView
-                    ?: inflater.inflate(R.layout.item_task, parent, false)
+                val view: View
+                val holder: TaskViewHolder
+                if (convertView == null) {
+                    view = inflater.inflate(R.layout.item_task, parent, false)
+                    holder = TaskViewHolder(view)
+                    view.tag = holder
+                } else {
+                    view = convertView
+                    holder = view.tag as TaskViewHolder
+                }
                 val task = item.task
 
-                val taskText     = view.findViewById<TextView>(R.id.taskText)
-                val priorityBadge= view.findViewById<TextView>(R.id.priorityBadge)
-                val badgeSpacer  = view.findViewById<Space>(R.id.badgeSpacer)
-                val dueDateText  = view.findViewById<TextView>(R.id.dueDateText)
-                val completedCheck = view.findViewById<CheckBox>(R.id.completedCheck)
-
-                // Build display text: strip priority/dates from visible text
-                taskText.text = task.text
+                // Build display text
+                holder.taskText.text = task.text
 
                 // Strike-through when completed
-                taskText.paintFlags = if (task.completed)
-                    taskText.paintFlags or Paint.STRIKE_THRU_TEXT_FLAG
+                holder.taskText.paintFlags = if (task.completed)
+                    holder.taskText.paintFlags or Paint.STRIKE_THRU_TEXT_FLAG
                 else
-                    taskText.paintFlags and Paint.STRIKE_THRU_TEXT_FLAG.inv()
+                    holder.taskText.paintFlags and Paint.STRIKE_THRU_TEXT_FLAG.inv()
 
                 // Linkify URLs and phone numbers; pass non-link taps through to row
-                Linkify.addLinks(taskText, Linkify.WEB_URLS or Linkify.PHONE_NUMBERS)
-                taskText.movementMethod = PassthroughLinkMovementMethod
+                Linkify.addLinks(holder.taskText, Linkify.WEB_URLS or Linkify.PHONE_NUMBERS)
+                holder.taskText.movementMethod = PassthroughLinkMovementMethod
 
                 // Priority badge
                 if (task.priority != Priority.NONE) {
-                    priorityBadge.text = task.priority.code
-                    priorityBadge.visibility = View.VISIBLE
-                    badgeSpacer.visibility = View.VISIBLE
+                    holder.priorityBadge.text = task.priority.code
+                    holder.priorityBadge.visibility = View.VISIBLE
+                    holder.badgeSpacer.visibility = View.VISIBLE
                 } else {
-                    priorityBadge.visibility = View.GONE
-                    badgeSpacer.visibility = View.GONE
+                    holder.priorityBadge.visibility = View.GONE
+                    holder.badgeSpacer.visibility = View.GONE
                 }
 
                 // Due date
                 val due = task.dueDate
                 if (due != null) {
-                    dueDateText.text = "due: $due"
-                    dueDateText.visibility = View.VISIBLE
+                    holder.dueDateText.text = "due: $due"
+                    holder.dueDateText.visibility = View.VISIBLE
                 } else {
-                    dueDateText.visibility = View.GONE
+                    holder.dueDateText.visibility = View.GONE
                 }
 
                 // Completion checkbox
-                completedCheck.isChecked = task.completed
+                holder.completedCheck.isChecked = task.completed
 
                 // Single tap anywhere on the row = edit; long-press = context menu
                 view.setOnClickListener { onEdit(item) }
@@ -134,7 +146,7 @@ class TaskAdapter(
                     showContextMenu(item)
                     true
                 }
-                completedCheck.setOnClickListener { onToggleComplete(item) }
+                holder.completedCheck.setOnClickListener { onToggleComplete(item) }
 
                 view
             }
