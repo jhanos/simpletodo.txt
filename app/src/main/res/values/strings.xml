@@ -47,4 +47,14 @@
     <string name="pref_tree_uri">pref_tree_uri</string>
     <string name="pref_sort_field">pref_sort_field</string>
     <string name="pref_show_future">pref_show_future</string>
+
+    <!-- Reminders -->
+    <string name="reminders_label">Reminders</string>
+    <string name="reminders_enable_label">Enable daily reminders</string>
+    <string name="reminder_time_label">Reminder time</string>
+    <string name="reminder_channel_name">Task reminders</string>
+    <string name="reminder_channel_desc">Daily notifications for tasks due today</string>
+    <string name="reminder_title">Task due today</string>
+    <string name="reminder_rationale">Notification permission is needed to show task reminders.</string>
+    <string name="reminder_permission_denied">Notification permission denied — reminders disabled.</string>
 </resources>

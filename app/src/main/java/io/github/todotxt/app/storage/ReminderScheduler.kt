@@ -1,0 +1,93 @@
+package io.github.todotxt.app.storage
+
+import android.app.AlarmManager
+import android.app.PendingIntent
+import android.content.Context
+import android.content.Intent
+import android.content.SharedPreferences
+import io.github.todotxt.app.model.Task
+import java.time.LocalDate
+import java.time.LocalDateTime
+import java.time.ZoneId
+import java.time.format.DateTimeFormatter
+
+object ReminderScheduler {
+
+    const val PREF_REMINDERS_ENABLED = "pref_reminders_enabled"
+    const val PREF_REMINDER_TIME     = "pref_reminder_time"   // "HH:MM"
+
+    private const val ACTION_REMINDER = "io.github.todotxt.app.REMINDER"
+    private const val REQUEST_CODE    = 1001
+    private val DATE_FMT = DateTimeFormatter.ofPattern("yyyy-MM-dd")
+
+    /**
+     * Schedule (or cancel) the single daily reminder alarm.
+     *
+     * Call this:
+     *  - after every successful load/save in MainActivity
+     *  - after the user changes reminder settings in SettingsActivity
+     *  - on BOOT_COMPLETED (from ReminderReceiver)
+     *
+     * If reminders are disabled, any existing alarm is cancelled.
+     * If reminders are enabled, a single exact alarm is set for the next
+     * occurrence of the configured time (today if it hasn't passed, tomorrow
+     * otherwise).  That alarm fires ReminderReceiver which posts notifications
+     * for all tasks due that day, then calls schedule() again to arm the next
+     * day's alarm.
+     */
+    fun schedule(context: Context, prefs: SharedPreferences) {
+        val alarmMgr = context.getSystemService(Context.ALARM_SERVICE) as AlarmManager
+        val pi = buildPendingIntent(context)
+
+        if (!prefs.getBoolean(PREF_REMINDERS_ENABLED, false)) {
+            alarmMgr.cancel(pi)
+            DebugLog.d(context, "ReminderScheduler: reminders disabled — alarm cancelled")
+            return
+        }
+
+        val timeStr = prefs.getString(PREF_REMINDER_TIME, "09:00") ?: "09:00"
+        val (hour, minute) = parseTime(timeStr)
+
+        val now = LocalDateTime.now()
+        var trigger = now.toLocalDate().atTime(hour, minute)
+        if (!trigger.isAfter(now)) {
+            trigger = trigger.plusDays(1)
+        }
+
+        val triggerMs = trigger
+            .atZone(ZoneId.systemDefault())
+            .toInstant()
+            .toEpochMilli()
+
+        alarmMgr.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, triggerMs, pi)
+        DebugLog.d(context, "ReminderScheduler: alarm set for $trigger")
+    }
+
+    /**
+     * Given today's date string and all tasks, return those that are due today
+     * and not already completed.
+     */
+    fun tasksDueToday(tasks: List<Task>, today: String): List<Task> =
+        tasks.filter { !it.completed && it.dueDate == today }
+
+    private fun buildPendingIntent(context: Context): PendingIntent {
+        val intent = Intent(ACTION_REMINDER).apply {
+            setPackage(context.packageName)
+        }
+        return PendingIntent.getBroadcast(
+            context,
+            REQUEST_CODE,
+            intent,
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+        )
+    }
+
+    private fun parseTime(timeStr: String): Pair<Int, Int> {
+        return try {
+            val parts = timeStr.split(":")
+            Pair(parts[0].trim().toInt(), parts[1].trim().toInt())
+        } catch (e: Exception) {
+            Pair(9, 0)
+        }
+    }
+}

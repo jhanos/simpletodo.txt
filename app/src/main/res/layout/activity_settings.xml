@@ -9,6 +9,8 @@
         android:layout_height="wrap_content"
         android:orientation="vertical">
 
+        <!-- ── Folder ──────────────────────────────────────────────── -->
+
         <TextView
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
@@ -30,6 +32,61 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:text="@string/choose_folder" />
+
+        <!-- ── Reminders ───────────────────────────────────────────── -->
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="@string/reminders_label"
+            android:textStyle="bold"
+            android:paddingTop="24dp"
+            android:paddingBottom="4dp" />
+
+        <!-- Enable / disable toggle -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:gravity="center_vertical"
+            android:paddingBottom="4dp">
+
+            <TextView
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:text="@string/reminders_enable_label" />
+
+            <Switch
+                android:id="@+id/remindersSwitch"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content" />
+        </LinearLayout>
+
+        <!-- Reminder time row (tappable) -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="48dp"
+            android:orientation="horizontal"
+            android:gravity="center_vertical"
+            android:paddingBottom="4dp">
+
+            <TextView
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:text="@string/reminder_time_label" />
+
+            <TextView
+                android:id="@+id/reminderTimeValue"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="09:00"
+                android:textColor="@android:color/holo_blue_dark"
+                android:padding="8dp" />
+        </LinearLayout>
+
+        <!-- ── Diagnostics ─────────────────────────────────────────── -->
 
         <TextView
             android:layout_width="wrap_content"

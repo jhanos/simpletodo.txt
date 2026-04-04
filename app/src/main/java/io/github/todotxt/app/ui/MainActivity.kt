@@ -18,6 +18,7 @@ import io.github.todotxt.app.model.TaskItem
 import io.github.todotxt.app.model.TodoList
 import io.github.todotxt.app.storage.DebugLog
 import io.github.todotxt.app.storage.FileStorage
+import io.github.todotxt.app.storage.ReminderScheduler
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
 import java.util.concurrent.atomic.AtomicBoolean
@@ -342,6 +343,7 @@ class MainActivity : Activity() {
                 DebugLog.d(this, "loadTodoFile: loaded ${lines.size} lines")
                 todoList.loadFromLines(lines)
                 persistTaskCache(lines)
+                ReminderScheduler.schedule(this, prefs())
                 lastLoadMs = System.currentTimeMillis()
                 runOnUiThread { refreshList() }
             } finally {
@@ -375,6 +377,8 @@ class MainActivity : Activity() {
                     runOnUiThread {
                         Toast.makeText(this, R.string.save_error, Toast.LENGTH_SHORT).show()
                     }
+                } else {
+                    ReminderScheduler.schedule(this, prefs())
                 }
             } finally {
                 isSaving.set(false)
