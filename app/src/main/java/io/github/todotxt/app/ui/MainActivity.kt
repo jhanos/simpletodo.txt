@@ -31,8 +31,9 @@ class MainActivity : Activity() {
         private const val REQ_SETTINGS     = 4
 
         private const val PREF_TREE_URI        = "pref_tree_uri"
-        private const val PREF_TODO_URI        = "pref_todo_uri"   // cached document URI
-        private const val PREF_DONE_URI        = "pref_done_uri"   // cached document URI
+        private const val PREF_TODO_URI        = "pref_todo_uri"    // cached document URI
+        private const val PREF_DONE_URI        = "pref_done_uri"    // cached document URI
+        private const val PREF_TASK_CACHE      = "pref_task_cache"  // last-known task lines
         private const val PREF_SORT_FIELD      = "pref_sort_field"
         private const val PREF_SHOW_FUTURE     = "pref_show_future"
         private const val PREF_FILTER_CONTEXTS = "pref_filter_contexts"
@@ -93,6 +94,7 @@ class MainActivity : Activity() {
         }
 
         loadPrefs()
+        showCachedTasksIfAvailable()
         loadTodoFile()
     }
 
@@ -339,6 +341,7 @@ class MainActivity : Activity() {
                 }
                 DebugLog.d(this, "loadTodoFile: loaded ${lines.size} lines")
                 todoList.loadFromLines(lines)
+                persistTaskCache(lines)
                 lastLoadMs = System.currentTimeMillis()
                 runOnUiThread { refreshList() }
             } finally {
@@ -392,6 +395,27 @@ class MainActivity : Activity() {
         adapter.setItems(items)
         emptyView.visibility = if (items.isEmpty()) android.view.View.VISIBLE
                                else android.view.View.GONE
+    }
+
+    // ── Task cache (instant startup display) ─────────────────────────────
+
+    /**
+     * If we have a previously persisted task list, load it into [todoList] and
+     * render it immediately on the main thread — before the SAF background load
+     * completes. The background load will overwrite this once it finishes.
+     */
+    private fun showCachedTasksIfAvailable() {
+        val cached = prefs().getString(PREF_TASK_CACHE, null) ?: return
+        val lines = cached.split('\n').filter { it.isNotBlank() }
+        if (lines.isEmpty()) return
+        DebugLog.d(this, "showCachedTasksIfAvailable: rendering ${lines.size} cached lines")
+        todoList.loadFromLines(lines)
+        refreshList()
+    }
+
+    /** Persist the current task lines so they can be shown instantly next launch. */
+    private fun persistTaskCache(lines: List<String>) {
+        prefs().edit().putString(PREF_TASK_CACHE, lines.joinToString("\n")).apply()
     }
 
     // ── Preferences ───────────────────────────────────────────────────────
