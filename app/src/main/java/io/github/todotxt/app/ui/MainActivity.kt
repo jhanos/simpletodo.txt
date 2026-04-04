@@ -31,11 +31,15 @@ class MainActivity : Activity() {
         private const val REQ_SETTINGS     = 4
 
         private const val PREF_TREE_URI        = "pref_tree_uri"
+        private const val PREF_TODO_URI        = "pref_todo_uri"   // cached document URI
+        private const val PREF_DONE_URI        = "pref_done_uri"   // cached document URI
         private const val PREF_SORT_FIELD      = "pref_sort_field"
         private const val PREF_SHOW_FUTURE     = "pref_show_future"
         private const val PREF_FILTER_CONTEXTS = "pref_filter_contexts"
         private const val PREF_FILTER_PROJECTS = "pref_filter_projects"
         private const val PREF_FILTER_TEXT     = "pref_filter_text"
+
+        private const val RESUME_RELOAD_DEBOUNCE_MS = 5_000L
 
         private val DATE_FMT = DateTimeFormatter.ofPattern("yyyy-MM-dd")
     }
@@ -49,6 +53,9 @@ class MainActivity : Activity() {
     private val isSaving  = AtomicBoolean(false)
     // True while a background load is already in flight — drop duplicate requests
     private val isLoading = AtomicBoolean(false)
+
+    // Timestamp of the last successful load completion (ms); 0 = never loaded
+    private var lastLoadMs: Long = 0
 
     // Current filter/sort state
     private var sortField      = SortField.PRIORITY
@@ -92,7 +99,13 @@ class MainActivity : Activity() {
     override fun onResume() {
         super.onResume()
         DebugLog.d(this, "=== MainActivity onResume ===")
-        // Re-read from disk on every resume so Nextcloud-synced changes are picked up.
+        // Skip reload if we loaded successfully very recently (e.g. just returned from
+        // AddEdit/Filter which calls onResume right after onActivityResult).
+        val age = System.currentTimeMillis() - lastLoadMs
+        if (age < RESUME_RELOAD_DEBOUNCE_MS) {
+            DebugLog.d(this, "onResume: skipping reload — last load was ${age}ms ago")
+            return
+        }
         loadTodoFile()
     }
 
@@ -144,7 +157,13 @@ class MainActivity : Activity() {
                 savePrefs()
                 refreshList()
             }
-            REQ_SETTINGS -> loadTodoFile()
+            REQ_SETTINGS -> {
+                // User may have changed the folder — invalidate cached document URIs
+                // so the next load re-resolves them via findFile.
+                prefs().edit().remove(PREF_TODO_URI).remove(PREF_DONE_URI).apply()
+                lastLoadMs = 0
+                loadTodoFile()
+            }
         }
     }
 
@@ -187,21 +206,29 @@ class MainActivity : Activity() {
     private fun archiveCompleted() {
         val archived = todoList.archiveCompleted()
         if (archived.isEmpty()) return
-        // Snapshot both line lists on the main thread before handing off,
-        // so a concurrent loadTodoFile() cannot race with our write.
         val archivedLines = archived.map { it.text }
         val todoLines = todoList.toLines()
+        val treeUri = prefs().getString(PREF_TREE_URI, null)?.let { Uri.parse(it) }
+        val cachedTodoUriStr = prefs().getString(PREF_TODO_URI, null)
+        val cachedDoneUriStr = prefs().getString(PREF_DONE_URI, null)
         isSaving.set(true)
         Thread {
             try {
-                val treeUri = prefs().getString(PREF_TREE_URI, null)?.let { Uri.parse(it) }
                 if (treeUri == null) {
                     runOnUiThread {
                         Toast.makeText(this, R.string.archive_no_folder, Toast.LENGTH_LONG).show()
                     }
                     return@Thread
                 }
-                val doneUri = FileStorage.findFile(this, treeUri, "done.txt")
+                val doneUri: Uri? = if (cachedDoneUriStr != null) {
+                    Uri.parse(cachedDoneUriStr)
+                } else {
+                    val resolved = FileStorage.findFile(this, treeUri, "done.txt")
+                    if (resolved != null) {
+                        prefs().edit().putString(PREF_DONE_URI, resolved.toString()).apply()
+                    }
+                    resolved
+                }
                 if (doneUri == null) {
                     runOnUiThread {
                         Toast.makeText(this, R.string.archive_no_folder, Toast.LENGTH_LONG).show()
@@ -209,7 +236,15 @@ class MainActivity : Activity() {
                     return@Thread
                 }
                 FileStorage.appendLines(this, doneUri, archivedLines)
-                val todoUri = FileStorage.findFile(this, treeUri, "todo.txt")
+                val todoUri: Uri? = if (cachedTodoUriStr != null) {
+                    Uri.parse(cachedTodoUriStr)
+                } else {
+                    val resolved = FileStorage.findFile(this, treeUri, "todo.txt")
+                    if (resolved != null) {
+                        prefs().edit().putString(PREF_TODO_URI, resolved.toString()).apply()
+                    }
+                    resolved
+                }
                 if (todoUri != null) {
                     FileStorage.writeLines(this, todoUri, todoLines)
                 }
@@ -261,23 +296,41 @@ class MainActivity : Activity() {
             isLoading.set(false)
             return
         }
+        // Read cached document URI — avoids a ContentResolver directory query on every load
+        val cachedUriStr = prefs().getString(PREF_TODO_URI, null)
         Thread {
             try {
                 if (isSaving.get()) {
                     DebugLog.d(this, "loadTodoFile: skipped on thread — write in flight")
                     return@Thread
                 }
-                val uri = FileStorage.findFile(this, treeUri, "todo.txt")
+                // Try the cached URI first; fall back to findFile if it's missing or stale
+                val uri: Uri? = if (cachedUriStr != null) {
+                    DebugLog.d(this, "loadTodoFile: using cached uri=$cachedUriStr")
+                    Uri.parse(cachedUriStr)
+                } else {
+                    DebugLog.d(this, "loadTodoFile: no cached uri — resolving via findFile")
+                    val resolved = FileStorage.findFile(this, treeUri, "todo.txt")
+                    if (resolved != null) {
+                        prefs().edit().putString(PREF_TODO_URI, resolved.toString()).apply()
+                        DebugLog.d(this, "loadTodoFile: cached uri=$resolved")
+                    }
+                    resolved
+                }
                 if (uri == null) {
-                    DebugLog.e(this, "loadTodoFile: findFile returned null")
+                    DebugLog.e(this, "loadTodoFile: could not resolve todo.txt uri")
                     runOnUiThread {
                         Toast.makeText(this, R.string.load_error, Toast.LENGTH_SHORT).show()
                     }
                     return@Thread
                 }
-                DebugLog.d(this, "loadTodoFile: resolved uri=$uri")
                 val lines = FileStorage.readLines(this, uri)
                 if (lines == null) {
+                    // Cached URI may be stale — clear it and let the next load re-resolve
+                    if (cachedUriStr != null) {
+                        DebugLog.d(this, "loadTodoFile: read failed on cached uri — clearing cache")
+                        prefs().edit().remove(PREF_TODO_URI).apply()
+                    }
                     DebugLog.e(this, "loadTodoFile: readLines returned null")
                     runOnUiThread {
                         Toast.makeText(this, R.string.load_error, Toast.LENGTH_SHORT).show()
@@ -286,6 +339,7 @@ class MainActivity : Activity() {
                 }
                 DebugLog.d(this, "loadTodoFile: loaded ${lines.size} lines")
                 todoList.loadFromLines(lines)
+                lastLoadMs = System.currentTimeMillis()
                 runOnUiThread { refreshList() }
             } finally {
                 isLoading.set(false)
@@ -297,13 +351,27 @@ class MainActivity : Activity() {
         // Snapshot the lines on the main thread before handing off
         val lines = todoList.toLines()
         val treeUri = prefs().getString(PREF_TREE_URI, null)?.let { Uri.parse(it) } ?: return
+        val cachedUriStr = prefs().getString(PREF_TODO_URI, null)
         isSaving.set(true)
         Thread {
             try {
-                val uri = FileStorage.findFile(this, treeUri, "todo.txt") ?: return@Thread
+                val uri: Uri? = if (cachedUriStr != null) {
+                    Uri.parse(cachedUriStr)
+                } else {
+                    val resolved = FileStorage.findFile(this, treeUri, "todo.txt")
+                    if (resolved != null) {
+                        prefs().edit().putString(PREF_TODO_URI, resolved.toString()).apply()
+                    }
+                    resolved
+                }
+                if (uri == null) return@Thread
                 val ok = FileStorage.writeLines(this, uri, lines)
-                if (!ok) runOnUiThread {
-                    Toast.makeText(this, R.string.save_error, Toast.LENGTH_SHORT).show()
+                if (!ok) {
+                    // Write failed — cached URI may be stale, clear it
+                    prefs().edit().remove(PREF_TODO_URI).apply()
+                    runOnUiThread {
+                        Toast.makeText(this, R.string.save_error, Toast.LENGTH_SHORT).show()
+                    }
                 }
             } finally {
                 isSaving.set(false)
