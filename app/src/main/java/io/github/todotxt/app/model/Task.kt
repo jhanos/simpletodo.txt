@@ -27,6 +27,14 @@ class Task(text: String) {
     val text: String
         get() = tokens.joinToString(" ") { it.text }
 
+    /** Like [text] but omits @context and +project tokens (shown as pills in the UI). */
+    val displayText: String
+        get() = tokens
+            .filter { it !is ContextToken && it !is ProjectToken }
+            .joinToString(" ") { it.text }
+            .replace(Regex("  +"), " ")
+            .trim()
+
     var completed: Boolean
         get() = tokens.any { it is CompletedToken }
         set(value) {

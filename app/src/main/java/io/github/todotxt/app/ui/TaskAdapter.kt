@@ -110,8 +110,8 @@ class TaskAdapter(
                 }
                 val task = item.task
 
-                // Build display text
-                holder.taskText.text = task.text
+                // Build display text (contexts and projects shown as pills below)
+                holder.taskText.text = task.displayText
 
                 // Strike-through when completed
                 holder.taskText.paintFlags = if (task.completed)
@@ -123,9 +123,9 @@ class TaskAdapter(
                 Linkify.addLinks(holder.taskText, Linkify.WEB_URLS or Linkify.PHONE_NUMBERS)
                 holder.taskText.movementMethod = PassthroughLinkMovementMethod
 
-                // Context (@) and project (+) tag pills
-                val tags = task.contexts.map { "@$it" to false } +
-                           task.projects.map { "+$it" to true }
+                // Context (@) and project (+) tag pills — no prefix in the label
+                val tags = task.contexts.map { it to false } +
+                           task.projects.map { it to true }
                 if (tags.isEmpty()) {
                     holder.tagsRow.visibility = View.GONE
                 } else {
