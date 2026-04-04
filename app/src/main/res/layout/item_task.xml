@@ -48,6 +48,15 @@
             android:textSize="14sp"
             android:textColor="@android:color/primary_text_light" />
 
+        <!-- Colored context (@) and project (+) tag pills -->
+        <LinearLayout
+            android:id="@+id/tagsRow"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:paddingTop="4dp"
+            android:visibility="gone" />
+
         <LinearLayout
             android:id="@+id/metaRow"
             android:layout_width="match_parent"

@@ -1,7 +1,9 @@
 package io.github.todotxt.app.ui
 
 import android.content.Context
+import android.graphics.Color
 import android.graphics.Paint
+import android.graphics.drawable.GradientDrawable
 import android.text.Spannable
 import android.text.method.LinkMovementMethod
 import android.text.style.URLSpan
@@ -12,6 +14,7 @@ import android.view.View
 import android.view.ViewGroup
 import android.widget.BaseAdapter
 import android.widget.CheckBox
+import android.widget.LinearLayout
 import android.widget.Space
 import android.widget.TextView
 import io.github.todotxt.app.R
@@ -49,12 +52,13 @@ private object PassthroughLinkMovementMethod : LinkMovementMethod() {
 }
 
 private class TaskViewHolder(view: View) {
-    val taskText: TextView      = view.findViewById(R.id.taskText)
-    val priorityBadge: TextView = view.findViewById(R.id.priorityBadge)
-    val badgeSpacer: Space      = view.findViewById(R.id.badgeSpacer)
-    val dueDateText: TextView   = view.findViewById(R.id.dueDateText)
+    val taskText: TextView       = view.findViewById(R.id.taskText)
+    val priorityBadge: TextView  = view.findViewById(R.id.priorityBadge)
+    val badgeSpacer: Space       = view.findViewById(R.id.badgeSpacer)
+    val dueDateText: TextView    = view.findViewById(R.id.dueDateText)
     val completedCheck: CheckBox = view.findViewById(R.id.completedCheck)
-    val editButton: TextView    = view.findViewById(R.id.editButton)
+    val editButton: TextView     = view.findViewById(R.id.editButton)
+    val tagsRow: LinearLayout    = view.findViewById(R.id.tagsRow)
 }
 
 class TaskAdapter(
@@ -119,6 +123,19 @@ class TaskAdapter(
                 Linkify.addLinks(holder.taskText, Linkify.WEB_URLS or Linkify.PHONE_NUMBERS)
                 holder.taskText.movementMethod = PassthroughLinkMovementMethod
 
+                // Context (@) and project (+) tag pills
+                val tags = task.contexts.map { "@$it" to false } +
+                           task.projects.map { "+$it" to true }
+                if (tags.isEmpty()) {
+                    holder.tagsRow.visibility = View.GONE
+                } else {
+                    holder.tagsRow.removeAllViews()
+                    tags.forEach { (label, isProject) ->
+                        holder.tagsRow.addView(makeTagPill(label, isProject))
+                    }
+                    holder.tagsRow.visibility = View.VISIBLE
+                }
+
                 // Priority badge
                 if (task.priority != Priority.NONE) {
                     holder.priorityBadge.text = task.priority.code
@@ -152,6 +169,27 @@ class TaskAdapter(
                 view
             }
         }
+    }
+
+    private fun makeTagPill(label: String, isProject: Boolean): TextView {
+        val tv = TextView(context)
+        val lp = LinearLayout.LayoutParams(
+            ViewGroup.LayoutParams.WRAP_CONTENT,
+            ViewGroup.LayoutParams.WRAP_CONTENT
+        )
+        lp.setMargins(0, 0, 6, 0)
+        tv.layoutParams = lp
+        tv.text = label
+        tv.textSize = 10f
+        tv.setTextColor(Color.WHITE)
+        tv.setPadding(10, 2, 10, 2)
+        val bg = GradientDrawable().apply {
+            shape = GradientDrawable.RECTANGLE
+            cornerRadius = 6f
+            setColor(if (isProject) 0xFF2E7D32.toInt() else 0xFF1565C0.toInt())
+        }
+        tv.background = bg
+        return tv
     }
 
     private fun showContextMenu(item: TaskItem) {
