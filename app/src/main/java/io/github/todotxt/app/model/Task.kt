@@ -27,10 +27,10 @@ class Task(text: String) {
     val text: String
         get() = tokens.joinToString(" ") { it.text }
 
-    /** Like [text] but omits @context and +project tokens (shown as pills in the UI). */
+    /** Like [text] but omits @context, +project and due:date tokens (shown separately in the UI). */
     val displayText: String
         get() = tokens
-            .filter { it !is ContextToken && it !is ProjectToken }
+            .filter { it !is ContextToken && it !is ProjectToken && it !is DueDateToken }
             .joinToString(" ") { it.text }
             .replace(Regex("  +"), " ")
             .trim()

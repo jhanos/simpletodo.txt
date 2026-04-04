@@ -57,4 +57,9 @@
     <string name="reminder_title">Task due today</string>
     <string name="reminder_rationale">Notification permission is needed to show task reminders.</string>
     <string name="reminder_permission_denied">Notification permission denied — reminders disabled.</string>
+
+    <!-- Due date picker -->
+    <string name="due_date_label">Due date</string>
+    <string name="due_date_none">None (tap to set)</string>
+    <string name="due_date_clear">Clear</string>
 </resources>

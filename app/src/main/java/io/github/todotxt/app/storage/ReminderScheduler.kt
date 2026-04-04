@@ -65,10 +65,10 @@ object ReminderScheduler {
 
     /**
      * Given today's date string and all tasks, return those that are due today
-     * and not already completed.
+     * or overdue and not already completed.
      */
-    fun tasksDueToday(tasks: List<Task>, today: String): List<Task> =
-        tasks.filter { !it.completed && it.dueDate == today }
+    fun tasksToRemind(tasks: List<Task>, today: String): List<Task> =
+        tasks.filter { !it.completed && it.dueDate != null && it.dueDate!! <= today }
 
     private fun buildPendingIntent(context: Context): PendingIntent {
         val intent = Intent(ACTION_REMINDER).apply {

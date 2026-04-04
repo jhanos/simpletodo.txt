@@ -44,8 +44,8 @@ class ReminderReceiver : BroadcastReceiver() {
             emptyList()
         }
 
-        val due = ReminderScheduler.tasksDueToday(tasks, today)
-        DebugLog.d(context, "ReminderReceiver: ${due.size} tasks due today")
+        val due = ReminderScheduler.tasksToRemind(tasks, today)
+        DebugLog.d(context, "ReminderReceiver: ${due.size} tasks due or overdue")
 
         if (due.isNotEmpty()) {
             ensureNotificationChannel(context)

@@ -1,11 +1,13 @@
 package io.github.todotxt.app.ui
 
 import android.app.Activity
+import android.app.DatePickerDialog
 import android.content.Intent
 import android.graphics.Color
 import android.graphics.drawable.GradientDrawable
 import android.os.Bundle
 import android.view.KeyEvent
+import android.view.View
 import android.view.ViewGroup
 import android.view.inputmethod.EditorInfo
 import android.widget.ArrayAdapter
@@ -13,8 +15,12 @@ import android.widget.Button
 import android.widget.EditText
 import android.widget.LinearLayout
 import android.widget.Spinner
+import android.widget.TextView
 import io.github.todotxt.app.R
 import io.github.todotxt.app.model.Priority
+import java.time.LocalDate
+import java.time.format.DateTimeFormatter
+import java.util.Calendar
 
 class AddEditActivity : Activity() {
 
@@ -32,25 +38,32 @@ class AddEditActivity : Activity() {
         private const val CHIP_SELECTED_TEXT = Color.WHITE
         private const val CHIP_UNSELECTED_TEXT = Color.BLACK
         private const val CHIP_CORNER_RADIUS = 32f
+
+        private val DATE_FMT = DateTimeFormatter.ofPattern("yyyy-MM-dd")
     }
 
     private lateinit var taskEditText: EditText
     private lateinit var prioritySpinner: Spinner
     private lateinit var contextsGroup: LinearLayout
     private lateinit var projectsGroup: LinearLayout
+    private lateinit var dueDateValue: TextView
+    private lateinit var dueDateClearButton: Button
 
     // Track selected values
     private val selectedContexts = mutableSetOf<String>()
     private val selectedProjects  = mutableSetOf<String>()
+    private var selectedDueDate: String? = null   // "YYYY-MM-DD" or null
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_add_edit)
 
-        taskEditText   = findViewById(R.id.taskEditText)
-        prioritySpinner= findViewById(R.id.prioritySpinner)
-        contextsGroup  = findViewById(R.id.contextsChipGroup)
-        projectsGroup  = findViewById(R.id.projectsChipGroup)
+        taskEditText      = findViewById(R.id.taskEditText)
+        prioritySpinner   = findViewById(R.id.prioritySpinner)
+        contextsGroup     = findViewById(R.id.contextsChipGroup)
+        projectsGroup     = findViewById(R.id.projectsChipGroup)
+        dueDateValue      = findViewById(R.id.dueDateValue)
+        dueDateClearButton = findViewById(R.id.dueDateClearButton)
 
         // Priority spinner
         val priorities = mutableListOf(getString(R.string.none))
@@ -63,11 +76,12 @@ class AddEditActivity : Activity() {
 
         val existingText = intent.getStringExtra(EXTRA_TASK_TEXT)
 
-        // Parse existing contexts/projects from the task text
+        // Parse existing contexts/projects/due from the task text
         val taskContexts = parseTokens(existingText, '@')
         val taskProjects  = parseTokens(existingText, '+')
         selectedContexts.addAll(taskContexts)
         selectedProjects.addAll(taskProjects)
+        selectedDueDate = parseDueDate(existingText)
 
         // Build context list: defaults + any from file, deduped, sorted
         val allContextsFromFile = intent.getStringArrayListExtra(EXTRA_ALL_CONTEXTS) ?: arrayListOf()
@@ -83,6 +97,14 @@ class AddEditActivity : Activity() {
 
         buildChips(contextsGroup, allContexts, selectedContexts)
         buildChips(projectsGroup, allProjects, selectedProjects)
+
+        // Due date row
+        refreshDueDateUi()
+        dueDateValue.setOnClickListener { showDatePicker() }
+        dueDateClearButton.setOnClickListener {
+            selectedDueDate = null
+            refreshDueDateUi()
+        }
 
         // Manual context entry
         val contextInput = findViewById<EditText>(R.id.contextInput)
@@ -125,8 +147,10 @@ class AddEditActivity : Activity() {
         // Pre-fill when editing
         if (existingText != null) {
             setTitle(R.string.edit_task)
-            taskEditText.setText(existingText)
-            taskEditText.setSelection(existingText.length)
+            // Show displayText (without due:, @context, +project) in the edit field
+            val displayRaw = stripMetaTokens(existingText)
+            taskEditText.setText(displayRaw)
+            taskEditText.setSelection(displayRaw.length)
             val prioCode = Regex("(?:^|^x\\s+\\S+\\s+)\\(([A-Z])\\)").find(existingText)
                 ?.groupValues?.get(1)
             if (prioCode != null) {
@@ -141,6 +165,38 @@ class AddEditActivity : Activity() {
         findViewById<Button>(R.id.cancelButton).setOnClickListener { finish() }
     }
 
+    // ── Due date helpers ──────────────────────────────────────────────────
+
+    private fun showDatePicker() {
+        val cal = Calendar.getInstance()
+        selectedDueDate?.let {
+            try {
+                val d = LocalDate.parse(it, DATE_FMT)
+                cal.set(d.year, d.monthValue - 1, d.dayOfMonth)
+            } catch (_: Exception) {}
+        }
+        DatePickerDialog(
+            this,
+            { _, year, month, day ->
+                selectedDueDate = DATE_FMT.format(LocalDate.of(year, month + 1, day))
+                refreshDueDateUi()
+            },
+            cal.get(Calendar.YEAR),
+            cal.get(Calendar.MONTH),
+            cal.get(Calendar.DAY_OF_MONTH)
+        ).show()
+    }
+
+    private fun refreshDueDateUi() {
+        if (selectedDueDate != null) {
+            dueDateValue.text = selectedDueDate
+            dueDateClearButton.visibility = View.VISIBLE
+        } else {
+            dueDateValue.text = getString(R.string.due_date_none)
+            dueDateClearButton.visibility = View.GONE
+        }
+    }
+
     // ── Chip helpers ──────────────────────────────────────────────────────
 
     private fun buildChips(
@@ -149,7 +205,6 @@ class AddEditActivity : Activity() {
         selected: MutableSet<String>
     ) {
         group.removeAllViews()
-        // Wrap chips in a FlowLayout-like fashion using nested horizontal LinearLayouts
         var row = newRow()
         group.addView(row)
 
@@ -157,7 +212,6 @@ class AddEditActivity : Activity() {
             val chip = makeChip(value, value in selected) { isNowSelected ->
                 if (isNowSelected) selected.add(value) else selected.remove(value)
             }
-            // Simple wrapping: start a new row when the current one has 4 chips
             if (row.childCount >= 4) {
                 row = newRow()
                 group.addView(row)
@@ -220,10 +274,11 @@ class AddEditActivity : Activity() {
         var raw = taskEditText.text.toString().trim()
         if (raw.isEmpty()) { finish(); return }
 
-        // Strip existing @context and +project tokens from raw text
+        // Strip existing @context, +project and due: tokens from raw text
         raw = raw.split(' ')
             .filter { word ->
-                !word.startsWith('@') && !word.startsWith('+')
+                !word.startsWith('@') && !word.startsWith('+') &&
+                !word.startsWith("due:", ignoreCase = true)
             }
             .joinToString(" ")
             .trim()
@@ -234,6 +289,11 @@ class AddEditActivity : Activity() {
         if (selectedPrio > 0) {
             val code = Priority.entries.filter { it != Priority.NONE }[selectedPrio - 1].code
             raw = "($code) $raw"
+        }
+
+        // Append due date
+        if (selectedDueDate != null) {
+            raw = "$raw due:$selectedDueDate"
         }
 
         // Append selected contexts and projects
@@ -261,4 +321,25 @@ class AddEditActivity : Activity() {
             .map { it.substring(1).lowercase() }
             .toSet()
     }
+
+    /** Extract the due:YYYY-MM-DD value from a raw task string, or null. */
+    private fun parseDueDate(text: String?): String? {
+        if (text == null) return null
+        return text.split(' ')
+            .firstOrNull { it.startsWith("due:", ignoreCase = true) && it.length > 4 }
+            ?.substring(4)
+    }
+
+    /**
+     * Return the task text with @context, +project, and due: tokens removed —
+     * used to pre-fill the edit field so the user only edits the plain description.
+     */
+    private fun stripMetaTokens(text: String): String =
+        text.split(' ')
+            .filter { word ->
+                !word.startsWith('@') && !word.startsWith('+') &&
+                !word.startsWith("due:", ignoreCase = true)
+            }
+            .joinToString(" ")
+            .trim()
 }

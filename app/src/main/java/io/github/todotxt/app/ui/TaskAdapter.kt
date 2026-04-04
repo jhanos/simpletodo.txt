@@ -3,6 +3,8 @@ package io.github.todotxt.app.ui
 import android.content.Context
 import android.graphics.Color
 import android.graphics.Paint
+import java.time.LocalDate
+import java.time.temporal.ChronoUnit
 import android.graphics.drawable.GradientDrawable
 import android.text.Spannable
 import android.text.method.LinkMovementMethod
@@ -149,7 +151,22 @@ class TaskAdapter(
                 // Due date
                 val due = task.dueDate
                 if (due != null) {
-                    holder.dueDateText.text = "due: $due"
+                    val today = LocalDate.now()
+                    val dueDate = LocalDate.parse(due)
+                    val days = ChronoUnit.DAYS.between(today, dueDate)
+                    val label = when {
+                        days < 0  -> "due: $due (${-days}d overdue)"
+                        days == 0L -> "due: $due (today)"
+                        days == 1L -> "due: $due (tomorrow)"
+                        else       -> "due: $due (in ${days}d)"
+                    }
+                    val color = when {
+                        days < 0  -> Color.RED
+                        days == 0L -> 0xFFE65100.toInt()
+                        else       -> Color.DKGRAY
+                    }
+                    holder.dueDateText.text = label
+                    holder.dueDateText.setTextColor(color)
                     holder.dueDateText.visibility = View.VISIBLE
                 } else {
                     holder.dueDateText.visibility = View.GONE
