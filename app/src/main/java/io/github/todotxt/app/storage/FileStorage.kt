@@ -5,7 +5,6 @@ import android.net.Uri
 import android.provider.DocumentsContract
 import android.util.Log
 import java.io.BufferedReader
-import java.io.FileOutputStream
 import java.io.InputStreamReader
 import java.io.OutputStreamWriter
 
@@ -76,6 +75,10 @@ object FileStorage {
 
     /** Read all non-blank lines from a document Uri. Returns null on error, empty list for an empty file. */
     fun readLines(context: Context, uri: Uri): List<String>? {
+        return readLinesAttempt(context, uri, retryOnFailure = true)
+    }
+
+    private fun readLinesAttempt(context: Context, uri: Uri, retryOnFailure: Boolean): List<String>? {
         return try {
             DebugLog.d(context, "readLines: opening $uri")
             val stream = context.contentResolver.openInputStream(uri)
@@ -93,7 +96,13 @@ object FileStorage {
         } catch (e: Exception) {
             Log.e(TAG, "readLines failed for $uri", e)
             DebugLog.e(context, "readLines EXCEPTION for $uri", e)
-            null
+            if (retryOnFailure) {
+                DebugLog.d(context, "readLines: retrying after 2s delay")
+                Thread.sleep(2000)
+                readLinesAttempt(context, uri, retryOnFailure = false)
+            } else {
+                null
+            }
         }
     }
 

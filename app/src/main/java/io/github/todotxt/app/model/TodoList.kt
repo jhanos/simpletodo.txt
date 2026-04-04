@@ -139,7 +139,6 @@ class TodoList {
      * @param sortField      primary sort / grouping axis
      */
     fun filteredAndGrouped(
-        showCompleted: Boolean,
         showFuture: Boolean,
         today: String,
         filterContexts: Set<String> = emptySet(),
@@ -149,7 +148,7 @@ class TodoList {
     ): List<VisibleItem> {
 
         val filtered = tasks.filter { task ->
-            if (!showCompleted && task.completed) return@filter false
+            if (!showFuture && task.isInFuture(today)) return@filter false
             if (!showFuture && task.isInFuture(today)) return@filter false
             if (filterContexts.isNotEmpty() && !task.contexts.containsAll(filterContexts)) return@filter false
             if (filterProjects.isNotEmpty() && !task.projects.containsAll(filterProjects)) return@filter false

@@ -18,13 +18,6 @@
             android:background="@android:drawable/edit_text" />
 
         <CheckBox
-            android:id="@+id/showCompletedCheck"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:text="@string/show_completed"
-            android:paddingTop="12dp" />
-
-        <CheckBox
             android:id="@+id/showFutureCheck"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"

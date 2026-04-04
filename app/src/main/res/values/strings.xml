@@ -20,7 +20,6 @@
     <string name="keyword_hint">Keyword search…</string>
     <string name="clear_filter">Clear filter</string>
     <string name="apply_filter">Apply</string>
-    <string name="show_completed">Show completed</string>
     <string name="show_future">Show future tasks</string>
     <string name="sort_by">Sort by</string>
     <string name="folder_label">Todo folder</string>
@@ -44,6 +43,5 @@
     <string name="save_error">Could not save todo.txt</string>
     <string name="pref_tree_uri">pref_tree_uri</string>
     <string name="pref_sort_field">pref_sort_field</string>
-    <string name="pref_show_completed">pref_show_completed</string>
     <string name="pref_show_future">pref_show_future</string>
 </resources>

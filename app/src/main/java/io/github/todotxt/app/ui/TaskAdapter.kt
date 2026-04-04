@@ -54,6 +54,7 @@ private class TaskViewHolder(view: View) {
     val badgeSpacer: Space      = view.findViewById(R.id.badgeSpacer)
     val dueDateText: TextView   = view.findViewById(R.id.dueDateText)
     val completedCheck: CheckBox = view.findViewById(R.id.completedCheck)
+    val editButton: TextView    = view.findViewById(R.id.editButton)
 }
 
 class TaskAdapter(
@@ -137,16 +138,16 @@ class TaskAdapter(
                     holder.dueDateText.visibility = View.GONE
                 }
 
-                // Completion checkbox
+                // Completion checkbox (state indicator only)
                 holder.completedCheck.isChecked = task.completed
 
-                // Single tap anywhere on the row = edit; long-press = context menu
-                view.setOnClickListener { onEdit(item) }
+                // Tap anywhere on the row = toggle completion; pencil = edit; long-press = context menu
+                view.setOnClickListener { onToggleComplete(item) }
                 view.setOnLongClickListener {
                     showContextMenu(item)
                     true
                 }
-                holder.completedCheck.setOnClickListener { onToggleComplete(item) }
+                holder.editButton.setOnClickListener { onEdit(item) }
 
                 view
             }

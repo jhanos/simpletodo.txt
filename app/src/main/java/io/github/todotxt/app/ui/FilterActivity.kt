@@ -16,7 +16,6 @@ class FilterActivity : Activity() {
 
     companion object {
         const val EXTRA_SORT_FIELD     = "sort_field"
-        const val EXTRA_SHOW_COMPLETED = "show_completed"
         const val EXTRA_SHOW_FUTURE    = "show_future"
         const val EXTRA_ALL_CONTEXTS   = "all_contexts"
         const val EXTRA_ALL_PROJECTS   = "all_projects"
@@ -26,7 +25,6 @@ class FilterActivity : Activity() {
     }
 
     private lateinit var keywordEdit: EditText
-    private lateinit var showCompletedCheck: CheckBox
     private lateinit var showFutureCheck: CheckBox
     private lateinit var sortSpinner: Spinner
     private lateinit var contextsList: ListView
@@ -37,7 +35,6 @@ class FilterActivity : Activity() {
         setContentView(R.layout.activity_filter)
 
         keywordEdit       = findViewById(R.id.keywordEdit)
-        showCompletedCheck= findViewById(R.id.showCompletedCheck)
         showFutureCheck   = findViewById(R.id.showFutureCheck)
         sortSpinner       = findViewById(R.id.sortSpinner)
         contextsList      = findViewById(R.id.contextsList)
@@ -62,7 +59,6 @@ class FilterActivity : Activity() {
         val currentSort     = SortField.valueOf(
             intent.getStringExtra(EXTRA_SORT_FIELD) ?: SortField.PRIORITY.name
         )
-        showCompletedCheck.isChecked = intent.getBooleanExtra(EXTRA_SHOW_COMPLETED, false)
         showFutureCheck.isChecked    = intent.getBooleanExtra(EXTRA_SHOW_FUTURE, false)
         keywordEdit.setText(intent.getStringExtra(EXTRA_FILTER_TEXT) ?: "")
         sortSpinner.setSelection(currentSort.ordinal)
@@ -104,7 +100,6 @@ class FilterActivity : Activity() {
         val selPrj = allProjects.filterIndexed { i, _ -> projectsList.isItemChecked(i) }
         setResult(RESULT_OK, Intent().apply {
             putExtra(EXTRA_SORT_FIELD,      sortField.name)
-            putExtra(EXTRA_SHOW_COMPLETED,  showCompletedCheck.isChecked)
             putExtra(EXTRA_SHOW_FUTURE,     showFutureCheck.isChecked)
             putExtra(EXTRA_CONTEXTS,        selCtx.toTypedArray())
             putExtra(EXTRA_PROJECTS,        selPrj.toTypedArray())
@@ -117,7 +112,6 @@ class FilterActivity : Activity() {
         allContexts.indices.forEach { contextsList.setItemChecked(it, false) }
         allProjects.indices.forEach { projectsList.setItemChecked(it, false) }
         keywordEdit.setText("")
-        showCompletedCheck.isChecked = false
         showFutureCheck.isChecked    = false
         sortSpinner.setSelection(0)
         apply(allContexts, allProjects)

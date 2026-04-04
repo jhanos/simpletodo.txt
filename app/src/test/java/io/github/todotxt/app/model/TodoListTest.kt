@@ -128,30 +128,20 @@ class TodoListTest : TestCase() {
 
     // ── filteredAndGrouped ────────────────────────────────────────────────
 
-    fun testFilterHidesCompleted() {
+    fun testCompletedTasksAlwaysVisible() {
         val tl = list("Buy milk", "x 2024-06-01 Done task")
         val items = tl.filteredAndGrouped(
-            showCompleted = false, showFuture = true,
+            showFuture = true,
             today = "2024-06-01", sortField = SortField.NONE
         )
         val tasks = items.filterIsInstance<TaskItem>()
-        assertEquals(1, tasks.size)
-        assertEquals("Buy milk", tasks[0].task.text)
-    }
-
-    fun testFilterShowsCompleted() {
-        val tl = list("Buy milk", "x 2024-06-01 Done task")
-        val items = tl.filteredAndGrouped(
-            showCompleted = true, showFuture = true,
-            today = "2024-06-01", sortField = SortField.NONE
-        )
-        assertEquals(2, items.filterIsInstance<TaskItem>().size)
+        assertEquals(2, tasks.size)
     }
 
     fun testFilterHidesFuture() {
         val tl = list("Buy milk", "Future task t:2099-01-01")
         val items = tl.filteredAndGrouped(
-            showCompleted = true, showFuture = false,
+            showFuture = false,
             today = "2024-06-01", sortField = SortField.NONE
         )
         assertEquals(1, items.filterIsInstance<TaskItem>().size)
@@ -160,7 +150,7 @@ class TodoListTest : TestCase() {
     fun testFilterByContext() {
         val tl = list("Call @phone", "Buy @store", "Email @phone @work")
         val items = tl.filteredAndGrouped(
-            showCompleted = true, showFuture = true,
+            showFuture = true,
             today = "2024-06-01",
             filterContexts = setOf("phone"),
             sortField = SortField.NONE
@@ -172,7 +162,7 @@ class TodoListTest : TestCase() {
     fun testFilterByProject() {
         val tl = list("Task +work", "Task +home", "Task +work +home")
         val items = tl.filteredAndGrouped(
-            showCompleted = true, showFuture = true,
+            showFuture = true,
             today = "2024-06-01",
             filterProjects = setOf("work"),
             sortField = SortField.NONE
@@ -183,7 +173,7 @@ class TodoListTest : TestCase() {
     fun testFilterByText() {
         val tl = list("Buy milk", "Call dentist", "Buy bread")
         val items = tl.filteredAndGrouped(
-            showCompleted = true, showFuture = true,
+            showFuture = true,
             today = "2024-06-01",
             filterText = "buy",
             sortField = SortField.NONE
@@ -196,7 +186,7 @@ class TodoListTest : TestCase() {
     fun testSortByPriorityInsertsHeaders() {
         val tl = list("(B) Task B", "(A) Task A", "No priority task")
         val items = tl.filteredAndGrouped(
-            showCompleted = true, showFuture = true,
+            showFuture = true,
             today = "2024-06-01", sortField = SortField.PRIORITY
         )
         val headers = items.filterIsInstance<HeaderItem>().map { it.title }
@@ -210,7 +200,7 @@ class TodoListTest : TestCase() {
     fun testSortByProject() {
         val tl = list("Task +alpha", "Task +beta", "Task +alpha 2")
         val items = tl.filteredAndGrouped(
-            showCompleted = true, showFuture = true,
+            showFuture = true,
             today = "2024-06-01", sortField = SortField.PROJECT
         )
         val headers = items.filterIsInstance<HeaderItem>().map { it.title }
@@ -222,7 +212,7 @@ class TodoListTest : TestCase() {
     fun testSortByContext() {
         val tl = list("Task @beta", "Task @alpha")
         val items = tl.filteredAndGrouped(
-            showCompleted = true, showFuture = true,
+            showFuture = true,
             today = "2024-06-01", sortField = SortField.CONTEXT
         )
         val headers = items.filterIsInstance<HeaderItem>().map { it.title }
@@ -232,7 +222,7 @@ class TodoListTest : TestCase() {
     fun testSortByDueDate() {
         val tl = list("Task due:2024-06-10", "Task due:2024-06-01", "Task no due")
         val items = tl.filteredAndGrouped(
-            showCompleted = true, showFuture = true,
+            showFuture = true,
             today = "2024-01-01", sortField = SortField.DUE_DATE
         )
         val headers = items.filterIsInstance<HeaderItem>().map { it.title }
@@ -244,7 +234,7 @@ class TodoListTest : TestCase() {
         val lines = listOf("Task C", "Task A", "Task B")
         val tl = list(*lines.toTypedArray())
         val items = tl.filteredAndGrouped(
-            showCompleted = true, showFuture = true,
+            showFuture = true,
             today = "2024-06-01", sortField = SortField.NONE
         )
         val taskTexts = items.filterIsInstance<TaskItem>().map { it.task.text }

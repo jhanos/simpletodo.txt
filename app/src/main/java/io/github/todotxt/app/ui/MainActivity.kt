@@ -32,7 +32,6 @@ class MainActivity : Activity() {
 
         private const val PREF_TREE_URI        = "pref_tree_uri"
         private const val PREF_SORT_FIELD      = "pref_sort_field"
-        private const val PREF_SHOW_COMPLETED  = "pref_show_completed"
         private const val PREF_SHOW_FUTURE     = "pref_show_future"
         private const val PREF_FILTER_CONTEXTS = "pref_filter_contexts"
         private const val PREF_FILTER_PROJECTS = "pref_filter_projects"
@@ -47,11 +46,12 @@ class MainActivity : Activity() {
     private lateinit var emptyView: TextView
 
     // True while a background write is in flight — suppress reloads during that window
-    private val isSaving = AtomicBoolean(false)
+    private val isSaving  = AtomicBoolean(false)
+    // True while a background load is already in flight — drop duplicate requests
+    private val isLoading = AtomicBoolean(false)
 
     // Current filter/sort state
     private var sortField      = SortField.PRIORITY
-    private var showCompleted  = false
     private var showFuture     = false
     private var filterContexts = emptySet<String>()
     private var filterProjects = emptySet<String>()
@@ -129,7 +129,6 @@ class MainActivity : Activity() {
                 sortField      = SortField.valueOf(
                     data.getStringExtra(FilterActivity.EXTRA_SORT_FIELD) ?: SortField.PRIORITY.name
                 )
-                showCompleted  = data.getBooleanExtra(FilterActivity.EXTRA_SHOW_COMPLETED, false)
                 showFuture     = data.getBooleanExtra(FilterActivity.EXTRA_SHOW_FUTURE, false)
                 filterContexts = data.getStringArrayExtra(FilterActivity.EXTRA_CONTEXTS)
                     ?.toSet() ?: emptySet()
@@ -147,7 +146,11 @@ class MainActivity : Activity() {
 
     private fun toggleComplete(item: TaskItem) {
         val today = LocalDate.now().format(DATE_FMT)
-        todoList.markComplete(item.task, today)
+        if (item.task.completed) {
+            todoList.markIncomplete(item.task)
+        } else {
+            todoList.markComplete(item.task, today)
+        }
         saveTodoFile()
         refreshList()
     }
@@ -216,7 +219,6 @@ class MainActivity : Activity() {
         startActivityForResult(
             Intent(this, FilterActivity::class.java).apply {
                 putExtra(FilterActivity.EXTRA_SORT_FIELD,     sortField.name)
-                putExtra(FilterActivity.EXTRA_SHOW_COMPLETED, showCompleted)
                 putExtra(FilterActivity.EXTRA_SHOW_FUTURE,    showFuture)
                 putStringArrayListExtra(FilterActivity.EXTRA_ALL_CONTEXTS,
                     ArrayList(todoList.allContexts))
@@ -241,36 +243,45 @@ class MainActivity : Activity() {
             DebugLog.d(this, "loadTodoFile: skipped — write in flight")
             return
         }
+        if (!isLoading.compareAndSet(false, true)) {
+            DebugLog.d(this, "loadTodoFile: skipped — load already in flight")
+            return
+        }
         val treeUri = prefs().getString(PREF_TREE_URI, null)?.let { Uri.parse(it) }
         if (treeUri == null) {
             DebugLog.d(this, "loadTodoFile: no tree URI set yet")
+            isLoading.set(false)
             return
         }
         Thread {
-            if (isSaving.get()) {
-                DebugLog.d(this, "loadTodoFile: skipped on thread — write in flight")
-                return@Thread
-            }
-            val uri = FileStorage.findFile(this, treeUri, "todo.txt")
-            if (uri == null) {
-                DebugLog.e(this, "loadTodoFile: findFile returned null")
-                runOnUiThread {
-                    Toast.makeText(this, R.string.load_error, Toast.LENGTH_SHORT).show()
+            try {
+                if (isSaving.get()) {
+                    DebugLog.d(this, "loadTodoFile: skipped on thread — write in flight")
+                    return@Thread
                 }
-                return@Thread
-            }
-            DebugLog.d(this, "loadTodoFile: resolved uri=$uri")
-            val lines = FileStorage.readLines(this, uri)
-            if (lines == null) {
-                DebugLog.e(this, "loadTodoFile: readLines returned null")
-                runOnUiThread {
-                    Toast.makeText(this, R.string.load_error, Toast.LENGTH_SHORT).show()
+                val uri = FileStorage.findFile(this, treeUri, "todo.txt")
+                if (uri == null) {
+                    DebugLog.e(this, "loadTodoFile: findFile returned null")
+                    runOnUiThread {
+                        Toast.makeText(this, R.string.load_error, Toast.LENGTH_SHORT).show()
+                    }
+                    return@Thread
                 }
-                return@Thread
+                DebugLog.d(this, "loadTodoFile: resolved uri=$uri")
+                val lines = FileStorage.readLines(this, uri)
+                if (lines == null) {
+                    DebugLog.e(this, "loadTodoFile: readLines returned null")
+                    runOnUiThread {
+                        Toast.makeText(this, R.string.load_error, Toast.LENGTH_SHORT).show()
+                    }
+                    return@Thread
+                }
+                DebugLog.d(this, "loadTodoFile: loaded ${lines.size} lines")
+                todoList.loadFromLines(lines)
+                runOnUiThread { refreshList() }
+            } finally {
+                isLoading.set(false)
             }
-            DebugLog.d(this, "loadTodoFile: loaded ${lines.size} lines")
-            todoList.loadFromLines(lines)
-            runOnUiThread { refreshList() }
         }.start()
     }
 
@@ -295,7 +306,6 @@ class MainActivity : Activity() {
     private fun refreshList() {
         val today = LocalDate.now().format(DATE_FMT)
         val items = todoList.filteredAndGrouped(
-            showCompleted  = showCompleted,
             showFuture     = showFuture,
             today          = today,
             filterContexts = filterContexts,
@@ -315,7 +325,6 @@ class MainActivity : Activity() {
     private fun loadPrefs() {
         val p = prefs()
         sortField      = SortField.valueOf(p.getString(PREF_SORT_FIELD, SortField.PRIORITY.name)!!)
-        showCompleted  = p.getBoolean(PREF_SHOW_COMPLETED, false)
         showFuture     = p.getBoolean(PREF_SHOW_FUTURE, false)
         filterContexts = p.getStringSet(PREF_FILTER_CONTEXTS, emptySet())!!
         filterProjects = p.getStringSet(PREF_FILTER_PROJECTS, emptySet())!!
@@ -325,7 +334,6 @@ class MainActivity : Activity() {
     private fun savePrefs() {
         prefs().edit().apply {
             putString(PREF_SORT_FIELD,      sortField.name)
-            putBoolean(PREF_SHOW_COMPLETED, showCompleted)
             putBoolean(PREF_SHOW_FUTURE,    showFuture)
             putStringSet(PREF_FILTER_CONTEXTS, filterContexts)
             putStringSet(PREF_FILTER_PROJECTS, filterProjects)
