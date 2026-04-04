@@ -76,7 +76,13 @@ class MainActivity : Activity() {
         listView.adapter = adapter
 
         findViewById<Button>(R.id.fab).setOnClickListener {
-            startActivityForResult(Intent(this, AddEditActivity::class.java), REQ_ADD_TASK)
+            startActivityForResult(
+                Intent(this, AddEditActivity::class.java).apply {
+                    putStringArrayListExtra(AddEditActivity.EXTRA_ALL_CONTEXTS, ArrayList(todoList.allContexts))
+                    putStringArrayListExtra(AddEditActivity.EXTRA_ALL_PROJECTS, ArrayList(todoList.allProjects))
+                },
+                REQ_ADD_TASK
+            )
         }
 
         loadPrefs()
@@ -159,6 +165,8 @@ class MainActivity : Activity() {
         startActivityForResult(
             Intent(this, AddEditActivity::class.java).apply {
                 putExtra(AddEditActivity.EXTRA_TASK_TEXT, item.task.text)
+                putStringArrayListExtra(AddEditActivity.EXTRA_ALL_CONTEXTS, ArrayList(todoList.allContexts))
+                putStringArrayListExtra(AddEditActivity.EXTRA_ALL_PROJECTS, ArrayList(todoList.allProjects))
             },
             REQ_EDIT_TASK
         )

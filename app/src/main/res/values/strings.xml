@@ -17,6 +17,9 @@
     <string name="none">None</string>
     <string name="contexts_label">Contexts</string>
     <string name="projects_label">Projects</string>
+    <string name="add_chip">Add</string>
+    <string name="context_hint">new context…</string>
+    <string name="project_hint">new project…</string>
     <string name="keyword_hint">Keyword search…</string>
     <string name="clear_filter">Clear filter</string>
     <string name="apply_filter">Apply</string>
