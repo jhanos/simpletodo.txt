@@ -21,6 +21,7 @@ object Prefs {
     const val FILTER_PROJECTS = "pref_filter_projects"
     const val FILTER_TEXT     = "pref_filter_text"
     const val ACTIVE_VIEW     = "pref_active_view"
+    const val ACTIVE_PROJECT  = "pref_active_project"
     const val REMINDER_TIME   = "pref_reminder_time"
 
     /** Today's date as "YYYY-MM-DD". Equivalent to LocalDate.now().toString(). */

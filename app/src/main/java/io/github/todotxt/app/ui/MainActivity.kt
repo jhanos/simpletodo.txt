@@ -2,14 +2,17 @@ package io.github.todotxt.app.ui
 
 import android.app.Activity
 import android.app.AlertDialog
+import android.content.Context
 import android.content.Intent
 import android.net.Uri
 import android.os.Bundle
 import android.view.Menu
 import android.view.MenuItem
 import android.view.View
+import android.view.ViewGroup
 import android.widget.AdapterView
 import android.widget.ArrayAdapter
+import android.widget.BaseAdapter
 import android.widget.Button
 import android.widget.ListView
 import android.widget.TextView
@@ -29,7 +32,64 @@ import io.github.todotxt.app.storage.Prefs
 import io.github.todotxt.app.storage.ReminderScheduler
 import java.util.concurrent.atomic.AtomicBoolean
 
-enum class ActiveView { INBOX, NEXT, FROZEN, SCHEDULED, SOMEDAY }
+enum class ActiveView { INBOX, NEXT, FROZEN, SCHEDULED, SOMEDAY, PROJECT }
+
+// ── Drawer item model ────────────────────────────────────────────────────────
+
+sealed class DrawerItem
+data class DrawerNavItem(val label: String, val view: ActiveView) : DrawerItem()
+data class DrawerSectionHeader(val label: String) : DrawerItem()
+data class DrawerProjectItem(val project: String) : DrawerItem()
+
+// ── DrawerAdapter ────────────────────────────────────────────────────────────
+
+class DrawerAdapter(private val context: Context) : BaseAdapter() {
+
+    private var items: List<DrawerItem> = emptyList()
+
+    fun setItems(newItems: List<DrawerItem>) {
+        items = newItems
+        notifyDataSetChanged()
+    }
+
+    override fun getCount(): Int = items.size
+    override fun getItem(position: Int): DrawerItem = items[position]
+    override fun getItemId(position: Int): Long = position.toLong()
+
+    override fun getViewTypeCount(): Int = 2
+    override fun getItemViewType(position: Int): Int =
+        if (items[position] is DrawerSectionHeader) 1 else 0
+
+    override fun isEnabled(position: Int): Boolean =
+        items[position] !is DrawerSectionHeader
+
+    override fun getView(position: Int, convertView: View?, parent: ViewGroup): View {
+        return when (val item = items[position]) {
+            is DrawerSectionHeader -> {
+                val v = convertView
+                    ?: (context as Activity).layoutInflater.inflate(R.layout.item_header, parent, false)
+                (v as TextView).text = item.label
+                v
+            }
+            is DrawerNavItem -> {
+                val v = convertView
+                    ?: (context as Activity).layoutInflater.inflate(
+                        android.R.layout.simple_list_item_activated_1, parent, false)
+                (v as TextView).text = item.label
+                v
+            }
+            is DrawerProjectItem -> {
+                val v = convertView
+                    ?: (context as Activity).layoutInflater.inflate(
+                        android.R.layout.simple_list_item_activated_1, parent, false)
+                (v as TextView).text = item.project
+                v
+            }
+        }
+    }
+}
+
+// ── MainActivity ─────────────────────────────────────────────────────────────
 
 class MainActivity : Activity() {
 
@@ -62,29 +122,15 @@ class MainActivity : Activity() {
     private var filterText     = ""
 
     // Active navigation view
-    private var activeView = ActiveView.NEXT
+    private var activeView    = ActiveView.NEXT
+    private var activeProject = ""
 
     // Inbox data
     private var inboxItems = mutableListOf<InboxItem>()
     private lateinit var inboxAdapter: InboxAdapter
 
-    // Drawer navigation entries
-    private val navEntries by lazy {
-        listOf(
-            getString(R.string.nav_inbox),
-            getString(R.string.nav_next),
-            getString(R.string.nav_frozen),
-            getString(R.string.nav_scheduled),
-            getString(R.string.nav_someday)
-        )
-    }
-    private val navViews = listOf(
-        ActiveView.INBOX,
-        ActiveView.NEXT,
-        ActiveView.FROZEN,
-        ActiveView.SCHEDULED,
-        ActiveView.SOMEDAY
-    )
+    // Drawer
+    private lateinit var drawerAdapter: DrawerAdapter
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -118,11 +164,14 @@ class MainActivity : Activity() {
         )
 
         // ── Drawer ──
-        val drawerAdapter = ArrayAdapter(this, android.R.layout.simple_list_item_activated_1, navEntries)
+        drawerAdapter = DrawerAdapter(this)
         drawerList.adapter = drawerAdapter
         drawerList.onItemClickListener = AdapterView.OnItemClickListener { _, _, position, _ ->
-            switchView(navViews[position])
-            closeDrawer()
+            when (val item = drawerAdapter.getItem(position)) {
+                is DrawerNavItem     -> { switchView(item.view); closeDrawer() }
+                is DrawerProjectItem -> switchToProject(item.project)
+                is DrawerSectionHeader -> { /* non-clickable — never fires */ }
+            }
         }
 
         // Scrim closes the drawer when tapped
@@ -138,6 +187,7 @@ class MainActivity : Activity() {
         fab.setOnClickListener { onFabClicked() }
 
         loadPrefs()
+        rebuildDrawer()
         showCachedTasksIfAvailable()
         loadTodoFile()
         // Inbox is loaded on demand when switching to that view
@@ -218,18 +268,70 @@ class MainActivity : Activity() {
         if (drawerList.visibility == View.VISIBLE) closeDrawer() else openDrawer()
     }
 
+    private fun rebuildDrawer() {
+        val items = mutableListOf<DrawerItem>(
+            DrawerSectionHeader(getString(R.string.nav_capture_header)),
+            DrawerNavItem(getString(R.string.nav_inbox),     ActiveView.INBOX),
+            DrawerSectionHeader(getString(R.string.nav_actions_header)),
+            DrawerNavItem(getString(R.string.nav_next),      ActiveView.NEXT),
+            DrawerNavItem(getString(R.string.nav_scheduled), ActiveView.SCHEDULED),
+            DrawerNavItem(getString(R.string.nav_frozen),    ActiveView.FROZEN),
+            DrawerNavItem(getString(R.string.nav_someday),   ActiveView.SOMEDAY)
+        )
+        val projects = todoList.allProjects
+        if (projects.isNotEmpty()) {
+            items += DrawerSectionHeader(getString(R.string.nav_projects_header))
+            projects.forEach { items += DrawerProjectItem(it) }
+        }
+        drawerAdapter.setItems(items)
+
+        // Guard: if active project no longer exists, fall back to NEXT
+        if (activeView == ActiveView.PROJECT && activeProject !in projects) {
+            activeView = ActiveView.NEXT
+            activeProject = ""
+            prefs.edit()
+                .putString(Prefs.ACTIVE_VIEW, ActiveView.NEXT.name)
+                .remove(Prefs.ACTIVE_PROJECT)
+                .apply()
+            title = getString(R.string.nav_next)
+        }
+
+        highlightDrawer()
+    }
+
+    private fun highlightDrawer() {
+        val items = (0 until drawerAdapter.count).map { drawerAdapter.getItem(it) }
+        // Clear all first
+        for (i in items.indices) drawerList.setItemChecked(i, false)
+
+        val pos = when (activeView) {
+            ActiveView.PROJECT -> items.indexOfFirst {
+                it is DrawerProjectItem && it.project == activeProject
+            }
+            else -> items.indexOfFirst {
+                it is DrawerNavItem && it.view == activeView
+            }
+        }
+        if (pos >= 0) drawerList.setItemChecked(pos, true)
+    }
+
     // ── Navigation ────────────────────────────────────────────────────────
 
     private fun switchView(view: ActiveView) {
         activeView = view
         prefs.edit().putString(Prefs.ACTIVE_VIEW, view.name).apply()
 
-        // Highlight the selected drawer entry
-        val idx = navViews.indexOf(view)
-        drawerList.setItemChecked(idx, true)
-
         // Update ActionBar title
-        title = navEntries[idx]
+        title = when (view) {
+            ActiveView.INBOX     -> getString(R.string.nav_inbox)
+            ActiveView.NEXT      -> getString(R.string.nav_next)
+            ActiveView.FROZEN    -> getString(R.string.nav_frozen)
+            ActiveView.SCHEDULED -> getString(R.string.nav_scheduled)
+            ActiveView.SOMEDAY   -> getString(R.string.nav_someday)
+            ActiveView.PROJECT   -> activeProject
+        }
+
+        highlightDrawer()
 
         if (view == ActiveView.INBOX) {
             listView.adapter = inboxAdapter
@@ -238,6 +340,20 @@ class MainActivity : Activity() {
             listView.adapter = adapter
             refreshList()
         }
+    }
+
+    private fun switchToProject(project: String) {
+        activeView    = ActiveView.PROJECT
+        activeProject = project
+        prefs.edit()
+            .putString(Prefs.ACTIVE_VIEW,    ActiveView.PROJECT.name)
+            .putString(Prefs.ACTIVE_PROJECT, project)
+            .apply()
+        title = project
+        listView.adapter = adapter
+        refreshList()
+        highlightDrawer()
+        closeDrawer()
     }
 
     private fun onFabClicked() {
@@ -393,7 +509,10 @@ class MainActivity : Activity() {
                 persistTaskCache(lines)
                 ReminderScheduler.schedule(this, prefs)
                 ReminderScheduler.scheduleDailySync(this)
-                runOnUiThread { if (activeView != ActiveView.INBOX) refreshList() }
+                runOnUiThread {
+                    if (activeView != ActiveView.INBOX) refreshList()
+                    rebuildDrawer()
+                }
                 postLoad?.invoke()
             } finally {
                 isLoading.set(false)
@@ -485,10 +604,16 @@ class MainActivity : Activity() {
                 .sortedWith(compareBy({ it.dueDate ?: "9999-99-99" }, { it.text }))
                 .map { TaskItem(it) }
 
+            ActiveView.PROJECT -> todoList.getAll()
+                .filter { activeProject in it.projects }
+                .sortedWith(compareBy({ it.dueDate ?: "9999-99-99" }, { it.text }))
+                .map { TaskItem(it) }
+
             ActiveView.INBOX -> return  // handled separately
         }
 
         adapter.setItems(items)
+        rebuildDrawer()
         updateEmptyView()
     }
 
@@ -527,10 +652,23 @@ class MainActivity : Activity() {
             ActiveView.valueOf(p.getString(Prefs.ACTIVE_VIEW, ActiveView.NEXT.name)!!)
         } catch (_: IllegalArgumentException) { ActiveView.NEXT }
 
-        // Apply initial drawer selection + title
-        val idx = navViews.indexOf(activeView)
-        title = navEntries[idx]
-        // drawerList adapter isn't set yet in loadPrefs; selection applied in onCreate after adapter set
+        when (activeView) {
+            ActiveView.PROJECT -> {
+                activeProject = p.getString(Prefs.ACTIVE_PROJECT, "") ?: ""
+                if (activeProject.isEmpty()) {
+                    activeView = ActiveView.NEXT
+                    title = getString(R.string.nav_next)
+                } else {
+                    title = activeProject
+                }
+            }
+            ActiveView.INBOX     -> title = getString(R.string.nav_inbox)
+            ActiveView.NEXT      -> title = getString(R.string.nav_next)
+            ActiveView.FROZEN    -> title = getString(R.string.nav_frozen)
+            ActiveView.SCHEDULED -> title = getString(R.string.nav_scheduled)
+            ActiveView.SOMEDAY   -> title = getString(R.string.nav_someday)
+        }
+        // drawerList adapter isn't set yet in loadPrefs; rebuildDrawer() called after in onCreate
     }
 
     private fun savePrefs() {

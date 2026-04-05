@@ -51,6 +51,9 @@
     <string name="nav_frozen">Frozen</string>
     <string name="nav_scheduled">Scheduled</string>
     <string name="nav_someday">Someday</string>
+    <string name="nav_capture_header">Capture</string>
+    <string name="nav_actions_header">Actions</string>
+    <string name="nav_projects_header">Projects</string>
 
     <!-- Someday -->
     <string name="someday_label">Someday</string>
