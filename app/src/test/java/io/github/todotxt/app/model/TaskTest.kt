@@ -168,6 +168,19 @@ class TaskTest : TestCase() {
         assertEquals("2024-03-05", newTask!!.dueDate)
     }
 
+    fun testMarkCompleteWithRecurrenceNoDueDate() {
+        // Task has rec: but no due: — completing it should produce a new task
+        // with due: set to completion-date + interval (non-strict base = today = completion date)
+        val task = Task("Take vitamins rec:1d")
+        val newTask = task.markComplete("2026-04-05")
+        assertNotNull(newTask)
+        // base = completion date (no existing due/threshold), interval 1d → 2026-04-06
+        assertEquals("2026-04-06", newTask!!.dueDate)
+        assertFalse(newTask.completed)
+        // original rec: token is preserved on the new task
+        assertEquals("1d", newTask.recurrencePattern)
+    }
+
     // ── Priority mutation ─────────────────────────────────────────────────
 
     fun testSetPriority() {
@@ -371,6 +384,18 @@ class TaskTest : TestCase() {
         task.isSomeday = false
         assertFalse(task.isSomeday)
         assertFalse(task.text.contains("status:someday"))
+    }
+
+    fun testRecurrenceTokenNotInDisplayText() {
+        val task = Task("Pay rent due:2024-01-31 rec:1m")
+        assertFalse(task.displayText.contains("rec:"))
+        assertEquals("Pay rent", task.displayText)
+    }
+
+    fun testRecurrenceTokenNotInDisplayTextStrict() {
+        val task = Task("Take vitamins rec:+1d")
+        assertFalse(task.displayText.contains("rec:"))
+        assertEquals("Take vitamins", task.displayText)
     }
 
     fun testFrozenAndSomedayAreIndependent() {

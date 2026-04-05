@@ -150,13 +150,14 @@ class TaskAdapter(
                 // Context (@) and project (+) tag pills — no prefix in the label
                 val tags = task.contexts.map { it to false } +
                            task.projects.map { it to true }
-                val showTags = tags.isNotEmpty() || task.isFrozen || task.isSomeday
+                val showTags = tags.isNotEmpty() || task.isFrozen || task.isSomeday || task.recurrencePattern != null
                 if (!showTags) {
                     holder.tagsRow.visibility = View.GONE
                 } else {
                     holder.tagsRow.removeAllViews()
                     if (task.isFrozen) holder.tagsRow.addView(makeFrozenBadge())
                     if (task.isSomeday) holder.tagsRow.addView(makeSomedayBadge())
+                    task.recurrencePattern?.let { holder.tagsRow.addView(makeRecurringBadge(it)) }
                     tags.forEach { (label, isProject) ->
                         holder.tagsRow.addView(makeTagPill(label, isProject))
                     }
@@ -273,6 +274,27 @@ class TaskAdapter(
             shape = GradientDrawable.RECTANGLE
             cornerRadius = 6f
             setColor(0xFFFF6F00.toInt())  // amber/orange
+        }
+        tv.background = bg
+        return tv
+    }
+
+    private fun makeRecurringBadge(pattern: String): TextView {
+        val tv = TextView(context)
+        val lp = LinearLayout.LayoutParams(
+            ViewGroup.LayoutParams.WRAP_CONTENT,
+            ViewGroup.LayoutParams.WRAP_CONTENT
+        )
+        lp.setMargins(0, 0, 6, 0)
+        tv.layoutParams = lp
+        tv.text = context.getString(R.string.rec_badge) + " $pattern"
+        tv.textSize = 10f
+        tv.setTextColor(Color.WHITE)
+        tv.setPadding(10, 2, 10, 2)
+        val bg = GradientDrawable().apply {
+            shape = GradientDrawable.RECTANGLE
+            cornerRadius = 6f
+            setColor(0xFF00897B.toInt())  // teal
         }
         tv.background = bg
         return tv

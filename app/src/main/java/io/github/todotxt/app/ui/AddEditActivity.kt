@@ -52,6 +52,7 @@ class AddEditActivity : Activity() {
     private lateinit var dueDateClearButton: Button
     private lateinit var frozenSwitch: Switch
     private lateinit var somedaySwitch: Switch
+    private lateinit var recurrenceEdit: EditText
 
     // Track selected values
     private val selectedContexts = mutableSetOf<String>()
@@ -70,6 +71,7 @@ class AddEditActivity : Activity() {
         dueDateClearButton = findViewById(R.id.dueDateClearButton)
         frozenSwitch      = findViewById(R.id.frozenSwitch)
         somedaySwitch     = findViewById(R.id.somedaySwitch)
+        recurrenceEdit    = findViewById(R.id.recurrenceEdit)
 
         // Priority spinner
         val priorities = mutableListOf(getString(R.string.none))
@@ -163,10 +165,12 @@ class AddEditActivity : Activity() {
             }
             frozenSwitch.isChecked = existingTask.isFrozen
             somedaySwitch.isChecked = existingTask.isSomeday
+            recurrenceEdit.setText(existingTask.recurrencePattern ?: "")
         } else {
             setTitle(R.string.add_task)
             frozenSwitch.isChecked = false
             somedaySwitch.isChecked = false
+            recurrenceEdit.setText("")
         }
 
         findViewById<Button>(R.id.saveButton).setOnClickListener { save(existingText) }
@@ -282,11 +286,13 @@ class AddEditActivity : Activity() {
         var raw = taskEditText.text.toString().trim()
         if (raw.isEmpty()) { finish(); return }
 
-        // Strip existing @context, +project, due: and status: tokens from raw text
+        // Strip existing @context, +project, due:, t:, rec: and status: tokens from raw text
         raw = raw.split(' ')
             .filter { word ->
                 !word.startsWith('@') && !word.startsWith('+') &&
                 !word.startsWith("due:", ignoreCase = true) &&
+                !word.startsWith("t:", ignoreCase = true) &&
+                !word.startsWith("rec:", ignoreCase = true) &&
                 !word.startsWith("status:", ignoreCase = true)
             }
             .joinToString(" ")
@@ -300,12 +306,20 @@ class AddEditActivity : Activity() {
             raw = "($code) $raw"
         }
 
-        // Append due date
+        // Append recurrence pattern if set
+        val recPattern = recurrenceEdit.text.toString().trim()
+        if (recPattern.isNotEmpty()) {
+            // Auto-assign due date = today + interval when none was chosen
+            if (selectedDueDate == null) {
+                selectedDueDate = Task.addInterval(LocalDate.now().toString(), recPattern)
+            }
+            raw = "$raw rec:$recPattern"
+        }
+
+        // Append due date (may have been auto-set above)
         if (selectedDueDate != null) {
             raw = "$raw due:$selectedDueDate"
         }
-
-        // Append selected contexts and projects
         if (selectedContexts.isNotEmpty()) {
             raw = raw + " " + selectedContexts.sorted().joinToString(" ") { "@$it" }
         }

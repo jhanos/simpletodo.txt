@@ -91,4 +91,9 @@
     <string name="due_date_label">Due date</string>
     <string name="due_date_none">None (tap to set)</string>
     <string name="due_date_clear">Clear</string>
+
+    <!-- Recurrence -->
+    <string name="recurrence_label">Recurrence</string>
+    <string name="recurrence_hint">e.g. 1w, +2m, 3d</string>
+    <string name="rec_badge">↻</string>
 </resources>

@@ -52,7 +52,7 @@ class Task(text: String) {
     /** Like [text] but omits @context, +project and due:date tokens (shown separately in the UI). */
     val displayText: String
         get() = _displayText ?: _tokens
-            .filter { it !is ContextToken && it !is ProjectToken && it !is DueDateToken && it !is StatusToken }
+            .filter { it !is ContextToken && it !is ProjectToken && it !is DueDateToken && it !is StatusToken && it !is RecurrenceToken }
             .joinToString(" ") { it.text }
             .replace(Regex("  +"), " ")
             .trim()
@@ -156,7 +156,8 @@ class Task(text: String) {
         val strict = pattern.startsWith("+")
         val baseDate = if (strict) dateStr else (newTask.dueDate ?: newTask.thresholdDate ?: dateStr)
         val interval = pattern.removePrefix("+")
-        newTask.dueDate?.let       { newTask.dueDate       = addInterval(baseDate, interval) }
+        // Always assign a due date on the new recurring task (create one if absent)
+        newTask.dueDate = addInterval(baseDate, interval)
         newTask.thresholdDate?.let { newTask.thresholdDate = addInterval(baseDate, interval) }
         if (newTask.createDate != null) newTask.createDate = dateStr
         return newTask
