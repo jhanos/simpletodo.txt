@@ -30,6 +30,7 @@ import io.github.todotxt.app.storage.DebugLog
 import io.github.todotxt.app.storage.FileStorage
 import io.github.todotxt.app.storage.Prefs
 import io.github.todotxt.app.storage.ReminderScheduler
+import java.time.LocalDate
 import java.util.concurrent.atomic.AtomicBoolean
 
 enum class ActiveView { INBOX, NEXT, FROZEN, SCHEDULED, SOMEDAY, PROJECT }
@@ -580,14 +581,30 @@ class MainActivity : Activity() {
         val today = Prefs.todayString()
 
         val items: List<VisibleItem> = when (activeView) {
-            ActiveView.NEXT -> todoList.filteredAndGrouped(
-                showFuture     = showFuture,
-                today          = today,
-                filterContexts = filterContexts,
-                filterProjects = filterProjects,
-                filterText     = filterText,
-                sortField      = sortField
-            ).filter { it is HeaderItem || (it is TaskItem && !it.task.completed && !it.task.isFrozen) }
+            ActiveView.NEXT -> {
+                val sevenDaysFromNow = LocalDate.now().plusDays(6).toString()
+                val raw = todoList.filteredAndGrouped(
+                    showFuture     = showFuture,
+                    today          = today,
+                    filterContexts = filterContexts,
+                    filterProjects = filterProjects,
+                    filterText     = filterText,
+                    sortField      = sortField
+                ).filter { item ->
+                    when (item) {
+                        is HeaderItem -> true  // prune orphans in the next pass
+                        is TaskItem   -> {
+                            val t = item.task
+                            !t.completed && !t.isFrozen && !t.isSomeday &&
+                                (t.dueDate == null || t.dueDate!! <= sevenDaysFromNow)
+                        }
+                    }
+                }
+                // Drop section headers that have no task row immediately after them
+                raw.filterIndexed { i, item ->
+                    item is TaskItem || (item is HeaderItem && raw.getOrNull(i + 1) is TaskItem)
+                }
+            }
 
             ActiveView.FROZEN -> todoList.getAll()
                 .filter { it.isFrozen }
