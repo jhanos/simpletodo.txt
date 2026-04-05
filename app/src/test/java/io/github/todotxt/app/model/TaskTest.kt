@@ -280,4 +280,106 @@ class TaskTest : TestCase() {
     fun testAddIntervalInvalidUnit() {
         assertNull(Task.addInterval("2024-01-01", "1x"))
     }
+
+    // ── status:frozen ─────────────────────────────────────────────────────
+
+    fun testParseFrozen() {
+        val task = Task("Buy milk status:frozen")
+        assertTrue(task.isFrozen)
+    }
+
+    fun testParseFrozenCaseInsensitive() {
+        val task = Task("Buy milk Status:Frozen")
+        assertTrue(task.isFrozen)
+    }
+
+    fun testNotFrozenByDefault() {
+        val task = Task("Buy milk")
+        assertFalse(task.isFrozen)
+    }
+
+    fun testFrozenRoundTrip() {
+        val task = Task("Buy milk status:frozen")
+        assertEquals("Buy milk status:frozen", task.text)
+    }
+
+    fun testFrozenExcludedFromDisplayText() {
+        val task = Task("Buy milk status:frozen")
+        assertFalse(task.displayText.contains("status:frozen"))
+        assertEquals("Buy milk", task.displayText)
+    }
+
+    fun testSetFrozen() {
+        val task = Task("Buy milk")
+        task.isFrozen = true
+        assertTrue(task.isFrozen)
+        assertTrue(task.text.contains("status:frozen"))
+    }
+
+    fun testUnfreeze() {
+        val task = Task("Buy milk status:frozen")
+        task.isFrozen = false
+        assertFalse(task.isFrozen)
+        assertFalse(task.text.contains("status:frozen"))
+    }
+
+    fun testFrozenWithOtherTokens() {
+        val task = Task("(A) Buy milk due:2024-06-01 @shop status:frozen")
+        assertTrue(task.isFrozen)
+        assertEquals(Priority.A, task.priority)
+        assertEquals("2024-06-01", task.dueDate)
+        assertEquals(listOf("shop"), task.contexts)
+    }
+
+    // ── status:someday ────────────────────────────────────────────────────
+
+    fun testParseSomeday() {
+        val task = Task("Buy milk status:someday")
+        assertTrue(task.isSomeday)
+    }
+
+    fun testParseSomedayCaseInsensitive() {
+        val task = Task("Buy milk Status:Someday")
+        assertTrue(task.isSomeday)
+    }
+
+    fun testNotSomedayByDefault() {
+        val task = Task("Buy milk")
+        assertFalse(task.isSomeday)
+    }
+
+    fun testSomedayRoundTrip() {
+        val task = Task("Buy milk status:someday")
+        assertEquals("Buy milk status:someday", task.text)
+    }
+
+    fun testSomedayExcludedFromDisplayText() {
+        val task = Task("Buy milk status:someday")
+        assertFalse(task.displayText.contains("status:someday"))
+        assertEquals("Buy milk", task.displayText)
+    }
+
+    fun testSetSomeday() {
+        val task = Task("Buy milk")
+        task.isSomeday = true
+        assertTrue(task.isSomeday)
+        assertTrue(task.text.contains("status:someday"))
+    }
+
+    fun testUnsetSomeday() {
+        val task = Task("Buy milk status:someday")
+        task.isSomeday = false
+        assertFalse(task.isSomeday)
+        assertFalse(task.text.contains("status:someday"))
+    }
+
+    fun testFrozenAndSomedayAreIndependent() {
+        val task = Task("Buy milk status:frozen")
+        task.isSomeday = true
+        assertTrue(task.isFrozen)
+        assertTrue(task.isSomeday)
+        task.isFrozen = false
+        assertFalse(task.isFrozen)
+        assertTrue(task.isSomeday)
+    }
 }

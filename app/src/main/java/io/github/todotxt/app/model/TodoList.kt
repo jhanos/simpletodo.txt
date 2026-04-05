@@ -149,7 +149,6 @@ class TodoList {
 
         val filtered = tasks.filter { task ->
             if (!showFuture && task.isInFuture(today)) return@filter false
-            if (!showFuture && task.isInFuture(today)) return@filter false
             if (filterContexts.isNotEmpty() && !task.contexts.containsAll(filterContexts)) return@filter false
             if (filterProjects.isNotEmpty() && !task.projects.containsAll(filterProjects)) return@filter false
             if (filterText.isNotBlank() && !task.text.contains(filterText, ignoreCase = true)) return@filter false

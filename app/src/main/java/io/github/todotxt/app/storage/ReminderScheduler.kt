@@ -5,6 +5,7 @@ import android.app.PendingIntent
 import android.content.Context
 import android.content.Intent
 import android.content.SharedPreferences
+import android.os.Build
 import io.github.todotxt.app.model.Task
 import java.time.LocalDate
 import java.time.LocalDateTime
@@ -16,8 +17,9 @@ object ReminderScheduler {
     const val PREF_REMINDERS_ENABLED = "pref_reminders_enabled"
     const val PREF_REMINDER_TIME     = "pref_reminder_time"   // "HH:MM"
 
-    private const val ACTION_REMINDER = "io.github.todotxt.app.REMINDER"
-    private const val REQUEST_CODE    = 1001
+    private const val ACTION_REMINDER      = "io.github.todotxt.app.REMINDER"
+    private const val REQUEST_CODE         = 1001
+    private const val REQUEST_CODE_TEST    = 1002
     private val DATE_FMT = DateTimeFormatter.ofPattern("yyyy-MM-dd")
 
     /**
@@ -59,8 +61,44 @@ object ReminderScheduler {
             .toInstant()
             .toEpochMilli()
 
-        alarmMgr.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, triggerMs, pi)
-        DebugLog.d(context, "ReminderScheduler: alarm set for $trigger")
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S && !alarmMgr.canScheduleExactAlarms()) {
+            alarmMgr.setAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, triggerMs, pi)
+            DebugLog.d(context, "ReminderScheduler: exact alarm not permitted — using inexact fallback for $trigger")
+        } else {
+            alarmMgr.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, triggerMs, pi)
+            DebugLog.d(context, "ReminderScheduler: exact alarm set for $trigger")
+        }
+    }
+
+    /**
+     * Schedule a one-shot test alarm for [hour]:[minute] today (or in the next
+     * minute if that time has already passed).  Uses a separate request code so
+     * it never interferes with the real daily alarm.
+     */
+    fun scheduleTest(context: Context, hour: Int, minute: Int) {
+        val alarmMgr = context.getSystemService(Context.ALARM_SERVICE) as AlarmManager
+        val pi = PendingIntent.getBroadcast(
+            context,
+            REQUEST_CODE_TEST,
+            Intent(ACTION_REMINDER).apply { setPackage(context.packageName) },
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+        )
+
+        val now = LocalDateTime.now()
+        var trigger = now.toLocalDate().atTime(hour, minute)
+        if (!trigger.isAfter(now)) {
+            trigger = trigger.plusDays(1)
+        }
+
+        val triggerMs = trigger.atZone(ZoneId.systemDefault()).toInstant().toEpochMilli()
+
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S && !alarmMgr.canScheduleExactAlarms()) {
+            alarmMgr.setAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, triggerMs, pi)
+            DebugLog.d(context, "ReminderScheduler: test alarm (inexact) set for $trigger")
+        } else {
+            alarmMgr.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, triggerMs, pi)
+            DebugLog.d(context, "ReminderScheduler: test alarm set for $trigger")
+        }
     }
 
     /**
@@ -82,7 +120,7 @@ object ReminderScheduler {
         )
     }
 
-    private fun parseTime(timeStr: String): Pair<Int, Int> {
+    internal fun parseTime(timeStr: String): Pair<Int, Int> {
         return try {
             val parts = timeStr.split(":")
             Pair(parts[0].trim().toInt(), parts[1].trim().toInt())

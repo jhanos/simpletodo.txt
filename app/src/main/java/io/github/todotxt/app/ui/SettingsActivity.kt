@@ -18,6 +18,7 @@ import android.widget.Switch
 import android.widget.TextView
 import android.widget.Toast
 import io.github.todotxt.app.R
+import io.github.todotxt.app.model.Task
 import io.github.todotxt.app.storage.DebugLog
 import io.github.todotxt.app.storage.FileStorage
 import io.github.todotxt.app.storage.ReminderScheduler
@@ -28,19 +29,26 @@ class SettingsActivity : Activity() {
         private const val REQ_OPEN_TREE          = 10
         private const val REQ_NOTIFICATION_PERM  = 11
         const val PREF_TREE_URI = "pref_tree_uri"
+        private const val PREF_TODO_URI   = "pref_todo_uri"
+        private const val PREF_DONE_URI   = "pref_done_uri"
+        private const val PREF_TASK_CACHE = "pref_task_cache"
     }
 
     private lateinit var folderUriText: TextView
     private lateinit var remindersSwitch: Switch
     private lateinit var reminderTimeRow: TextView
+    private lateinit var testReminderButton: Button
+    private lateinit var archiveButton: Button
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_settings)
 
-        folderUriText  = findViewById(R.id.folderUriText)
-        remindersSwitch = findViewById(R.id.remindersSwitch)
-        reminderTimeRow = findViewById(R.id.reminderTimeValue)
+        folderUriText      = findViewById(R.id.folderUriText)
+        remindersSwitch    = findViewById(R.id.remindersSwitch)
+        reminderTimeRow    = findViewById(R.id.reminderTimeValue)
+        testReminderButton = findViewById(R.id.testReminderButton)
+        archiveButton      = findViewById(R.id.archiveButton)
 
         refreshFolderLabel()
         refreshReminderUi()
@@ -65,8 +73,8 @@ class SettingsActivity : Activity() {
         }
 
         reminderTimeRow.setOnClickListener {
-            val current = prefs().getString(ReminderScheduler.PREF_REMINDER_TIME, "09:00") ?: "09:00"
-            val (h, m) = parseTime(current)
+            val current = prefs().getString(ReminderScheduler.PREF_REMINDER_TIME, "15:00") ?: "15:00"
+            val (h, m) = ReminderScheduler.parseTime(current)
             TimePickerDialog(this, { _, hour, minute ->
                 val timeStr = "%02d:%02d".format(hour, minute)
                 prefs().edit().putString(ReminderScheduler.PREF_REMINDER_TIME, timeStr).apply()
@@ -74,6 +82,22 @@ class SettingsActivity : Activity() {
                 ReminderScheduler.schedule(this, prefs())
             }, h, m, true).show()
         }
+
+        testReminderButton.setOnClickListener {
+            val current = prefs().getString(ReminderScheduler.PREF_REMINDER_TIME, "09:00") ?: "09:00"
+            val (h, m) = ReminderScheduler.parseTime(current)
+            TimePickerDialog(this, { _, hour, minute ->
+                ReminderScheduler.scheduleTest(this, hour, minute)
+                val timeStr = "%02d:%02d".format(hour, minute)
+                Toast.makeText(
+                    this,
+                    getString(R.string.test_reminder_scheduled, timeStr),
+                    Toast.LENGTH_SHORT
+                ).show()
+            }, h, m, true).show()
+        }
+
+        archiveButton.setOnClickListener { archiveCompleted() }
 
         findViewById<Button>(R.id.copyDebugLogButton).setOnClickListener {
             val log = DebugLog.read(this)
@@ -168,6 +192,8 @@ class SettingsActivity : Activity() {
         }
         reminderTimeRow.isEnabled = enabled
         reminderTimeRow.alpha = if (enabled) 1f else 0.4f
+        testReminderButton.isEnabled = enabled
+        testReminderButton.alpha = if (enabled) 1f else 0.4f
         val time = prefs().getString(ReminderScheduler.PREF_REMINDER_TIME, "09:00") ?: "09:00"
         reminderTimeRow.text = time
     }
@@ -203,6 +229,65 @@ class SettingsActivity : Activity() {
         // Result delivered via onRequestPermissionsResult; onResult not called here
     }
 
+    // ── Archive ───────────────────────────────────────────────────────────
+
+    private fun archiveCompleted() {
+        val treeUri = prefs().getString(PREF_TREE_URI, null)?.let { Uri.parse(it) }
+        if (treeUri == null) {
+            Toast.makeText(this, R.string.archive_no_folder, Toast.LENGTH_LONG).show()
+            return
+        }
+        val cached = prefs().getString(PREF_TASK_CACHE, null)
+        val allLines = cached?.split('\n')?.filter { it.isNotBlank() } ?: emptyList()
+        val tasks = allLines.map { Task(it) }
+        val completed = tasks.filter { it.completed }
+        if (completed.isEmpty()) {
+            Toast.makeText(this, getString(R.string.archive_done, 0), Toast.LENGTH_SHORT).show()
+            return
+        }
+        val incompleteLinesNew = tasks.filter { !it.completed }.map { it.text }
+        val completedLines     = completed.map { it.text }
+        archiveButton.isEnabled = false
+        Thread {
+            try {
+                val doneUri: Uri? = prefs().getString(PREF_DONE_URI, null)
+                    ?.let { Uri.parse(it) }
+                    ?: FileStorage.findFile(this, treeUri, "done.txt")?.also { resolved ->
+                        prefs().edit().putString(PREF_DONE_URI, resolved.toString()).apply()
+                    }
+                if (doneUri == null) {
+                    runOnUiThread {
+                        Toast.makeText(this, R.string.archive_no_folder, Toast.LENGTH_LONG).show()
+                    }
+                    return@Thread
+                }
+                FileStorage.appendLines(this, doneUri, completedLines)
+
+                val todoUri: Uri? = prefs().getString(PREF_TODO_URI, null)
+                    ?.let { Uri.parse(it) }
+                    ?: FileStorage.findFile(this, treeUri, "todo.txt")?.also { resolved ->
+                        prefs().edit().putString(PREF_TODO_URI, resolved.toString()).apply()
+                    }
+                if (todoUri != null) {
+                    FileStorage.writeLines(this, todoUri, incompleteLinesNew)
+                }
+
+                // Update task cache and signal MainActivity to reload
+                prefs().edit().putString(PREF_TASK_CACHE, incompleteLinesNew.joinToString("\n")).apply()
+                runOnUiThread {
+                    Toast.makeText(
+                        this,
+                        getString(R.string.archive_done, completed.size),
+                        Toast.LENGTH_SHORT
+                    ).show()
+                    setResult(RESULT_OK)
+                }
+            } finally {
+                runOnUiThread { archiveButton.isEnabled = true }
+            }
+        }.start()
+    }
+
     // ── Helpers ───────────────────────────────────────────────────────────
 
     private fun prefs() = getSharedPreferences("todotxt", MODE_PRIVATE)
@@ -212,14 +297,5 @@ class SettingsActivity : Activity() {
             .getString(PREF_TREE_URI, null)
             ?.let { Uri.parse(it) }
         folderUriText.text = treeUri?.lastPathSegment ?: getString(R.string.folder_not_set)
-    }
-
-    private fun parseTime(timeStr: String): Pair<Int, Int> {
-        return try {
-            val parts = timeStr.split(":")
-            Pair(parts[0].trim().toInt(), parts[1].trim().toInt())
-        } catch (e: Exception) {
-            Pair(9, 0)
-        }
     }
 }

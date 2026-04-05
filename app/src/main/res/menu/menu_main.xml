@@ -2,11 +2,10 @@
 <menu xmlns:android="http://schemas.android.com/apk/res/android">
     <item android:id="@+id/action_filter"
         android:title="@string/filter"
-        android:showAsAction="never" />
-    <item android:id="@+id/action_archive"
-        android:title="@string/archive"
-        android:showAsAction="never" />
+        android:icon="@drawable/ic_filter"
+        android:showAsAction="always" />
     <item android:id="@+id/action_settings"
         android:title="@string/settings"
-        android:showAsAction="never" />
+        android:icon="@drawable/ic_settings"
+        android:showAsAction="always" />
 </menu>

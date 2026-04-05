@@ -33,6 +33,22 @@
             android:layout_height="wrap_content"
             android:text="@string/choose_folder" />
 
+        <!-- ── Archive ────────────────────────────────────────────── -->
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="@string/archive_label"
+            android:textStyle="bold"
+            android:paddingTop="24dp"
+            android:paddingBottom="4dp" />
+
+        <Button
+            android:id="@+id/archiveButton"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="@string/archive" />
+
         <!-- ── Reminders ───────────────────────────────────────────── -->
 
         <TextView
@@ -85,6 +101,12 @@
                 android:textColor="@android:color/holo_blue_dark"
                 android:padding="8dp" />
         </LinearLayout>
+
+        <Button
+            android:id="@+id/testReminderButton"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="@string/test_reminder" />
 
         <!-- ── Diagnostics ─────────────────────────────────────────── -->
 

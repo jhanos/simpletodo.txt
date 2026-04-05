@@ -1,16 +1,26 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- activity_main.xml : full-screen ListView + FAB -->
-<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+<!-- Root FrameLayout — drawer panel overlays main content -->
+<FrameLayout
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/rootLayout"
     android:layout_width="match_parent"
     android:layout_height="match_parent">
 
-    <ListView
-        android:id="@+id/listView"
+    <!-- Main content -->
+    <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="match_parent"
-        android:divider="@android:color/darker_gray"
-        android:dividerHeight="0.5dp"
-        android:scrollbarStyle="outsideOverlay" />
+        android:orientation="vertical">
+
+        <ListView
+            android:id="@+id/listView"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:divider="@android:color/darker_gray"
+            android:dividerHeight="0.5dp"
+            android:scrollbarStyle="outsideOverlay" />
+
+    </LinearLayout>
 
     <TextView
         android:id="@+id/emptyView"
@@ -32,5 +42,26 @@
         android:textSize="24sp"
         android:textColor="@android:color/white"
         android:background="@drawable/bg_fab" />
+
+    <!-- Scrim: semi-transparent overlay behind drawer; closes drawer on tap -->
+    <View
+        android:id="@+id/drawerScrim"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:background="#88000000"
+        android:visibility="gone" />
+
+    <!-- Navigation drawer panel — slides in from the left -->
+    <ListView
+        android:id="@+id/drawerList"
+        android:layout_width="240dp"
+        android:layout_height="match_parent"
+        android:layout_gravity="start"
+        android:background="@android:color/white"
+        android:divider="@android:color/darker_gray"
+        android:dividerHeight="0.5dp"
+        android:choiceMode="singleChoice"
+        android:elevation="8dp"
+        android:visibility="gone" />
 
 </FrameLayout>

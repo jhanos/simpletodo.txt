@@ -15,9 +15,11 @@ import android.widget.Button
 import android.widget.EditText
 import android.widget.LinearLayout
 import android.widget.Spinner
+import android.widget.Switch
 import android.widget.TextView
 import io.github.todotxt.app.R
 import io.github.todotxt.app.model.Priority
+import io.github.todotxt.app.model.Task
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
 import java.util.Calendar
@@ -48,6 +50,8 @@ class AddEditActivity : Activity() {
     private lateinit var projectsGroup: LinearLayout
     private lateinit var dueDateValue: TextView
     private lateinit var dueDateClearButton: Button
+    private lateinit var frozenSwitch: Switch
+    private lateinit var somedaySwitch: Switch
 
     // Track selected values
     private val selectedContexts = mutableSetOf<String>()
@@ -64,6 +68,8 @@ class AddEditActivity : Activity() {
         projectsGroup     = findViewById(R.id.projectsChipGroup)
         dueDateValue      = findViewById(R.id.dueDateValue)
         dueDateClearButton = findViewById(R.id.dueDateClearButton)
+        frozenSwitch      = findViewById(R.id.frozenSwitch)
+        somedaySwitch     = findViewById(R.id.somedaySwitch)
 
         // Priority spinner
         val priorities = mutableListOf(getString(R.string.none))
@@ -76,12 +82,11 @@ class AddEditActivity : Activity() {
 
         val existingText = intent.getStringExtra(EXTRA_TASK_TEXT)
 
-        // Parse existing contexts/projects/due from the task text
-        val taskContexts = parseTokens(existingText, '@')
-        val taskProjects  = parseTokens(existingText, '+')
-        selectedContexts.addAll(taskContexts)
-        selectedProjects.addAll(taskProjects)
-        selectedDueDate = parseDueDate(existingText)
+        // Parse existing task once using the model — reuse for contexts, projects, due, display text
+        val existingTask = existingText?.let { Task(it) }
+        selectedContexts.addAll(existingTask?.contexts ?: emptyList())
+        selectedProjects.addAll(existingTask?.projects ?: emptyList())
+        selectedDueDate = existingTask?.dueDate
 
         // Build context list: defaults + any from file, deduped, sorted
         val allContextsFromFile = intent.getStringArrayListExtra(EXTRA_ALL_CONTEXTS) ?: arrayListOf()
@@ -145,20 +150,23 @@ class AddEditActivity : Activity() {
         }
 
         // Pre-fill when editing
-        if (existingText != null) {
+        if (existingTask != null) {
             setTitle(R.string.edit_task)
             // Show displayText (without due:, @context, +project) in the edit field
-            val displayRaw = stripMetaTokens(existingText)
+            val displayRaw = existingTask.displayText
             taskEditText.setText(displayRaw)
             taskEditText.setSelection(displayRaw.length)
-            val prioCode = Regex("(?:^|^x\\s+\\S+\\s+)\\(([A-Z])\\)").find(existingText)
-                ?.groupValues?.get(1)
+            val prioCode = existingTask.priority.takeIf { it != Priority.NONE }?.code
             if (prioCode != null) {
                 val idx = priorities.indexOf(prioCode)
                 if (idx >= 0) prioritySpinner.setSelection(idx)
             }
+            frozenSwitch.isChecked = existingTask.isFrozen
+            somedaySwitch.isChecked = existingTask.isSomeday
         } else {
             setTitle(R.string.add_task)
+            frozenSwitch.isChecked = false
+            somedaySwitch.isChecked = false
         }
 
         findViewById<Button>(R.id.saveButton).setOnClickListener { save(existingText) }
@@ -274,11 +282,12 @@ class AddEditActivity : Activity() {
         var raw = taskEditText.text.toString().trim()
         if (raw.isEmpty()) { finish(); return }
 
-        // Strip existing @context, +project and due: tokens from raw text
+        // Strip existing @context, +project, due: and status: tokens from raw text
         raw = raw.split(' ')
             .filter { word ->
                 !word.startsWith('@') && !word.startsWith('+') &&
-                !word.startsWith("due:", ignoreCase = true)
+                !word.startsWith("due:", ignoreCase = true) &&
+                !word.startsWith("status:", ignoreCase = true)
             }
             .joinToString(" ")
             .trim()
@@ -304,6 +313,16 @@ class AddEditActivity : Activity() {
             raw = raw + " " + selectedProjects.sorted().joinToString(" ") { "+$it" }
         }
 
+        // Apply frozen state from the switch
+        if (frozenSwitch.isChecked) {
+            raw = "$raw status:frozen"
+        }
+
+        // Apply someday state from the switch
+        if (somedaySwitch.isChecked) {
+            raw = "$raw status:someday"
+        }
+
         setResult(RESULT_OK, Intent().apply {
             putExtra(EXTRA_TASK_TEXT, raw)
             if (oldText != null) putExtra(EXTRA_OLD_TASK_TEXT, oldText)
@@ -312,34 +331,4 @@ class AddEditActivity : Activity() {
     }
 
     // ── Helpers ───────────────────────────────────────────────────────────
-
-    /** Extract @context or +project values from a raw task string. */
-    private fun parseTokens(text: String?, prefix: Char): Set<String> {
-        if (text == null) return emptySet()
-        return text.split(' ')
-            .filter { it.startsWith(prefix) && it.length > 1 }
-            .map { it.substring(1).lowercase() }
-            .toSet()
-    }
-
-    /** Extract the due:YYYY-MM-DD value from a raw task string, or null. */
-    private fun parseDueDate(text: String?): String? {
-        if (text == null) return null
-        return text.split(' ')
-            .firstOrNull { it.startsWith("due:", ignoreCase = true) && it.length > 4 }
-            ?.substring(4)
-    }
-
-    /**
-     * Return the task text with @context, +project, and due: tokens removed —
-     * used to pre-fill the edit field so the user only edits the plain description.
-     */
-    private fun stripMetaTokens(text: String): String =
-        text.split(' ')
-            .filter { word ->
-                !word.startsWith('@') && !word.startsWith('+') &&
-                !word.startsWith("due:", ignoreCase = true)
-            }
-            .joinToString(" ")
-            .trim()
 }

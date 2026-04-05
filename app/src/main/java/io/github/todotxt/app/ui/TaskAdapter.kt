@@ -20,6 +20,7 @@ import android.widget.LinearLayout
 import android.widget.Space
 import android.widget.TextView
 import io.github.todotxt.app.R
+import android.graphics.Typeface
 import io.github.todotxt.app.model.HeaderItem
 import io.github.todotxt.app.model.Priority
 import io.github.todotxt.app.model.TaskItem
@@ -67,7 +68,9 @@ class TaskAdapter(
     private val context: Context,
     private val onToggleComplete: (taskItem: TaskItem) -> Unit,
     private val onEdit: (taskItem: TaskItem) -> Unit,
-    private val onDelete: (taskItem: TaskItem) -> Unit
+    private val onDelete: (taskItem: TaskItem) -> Unit,
+    private val onToggleFreeze: (taskItem: TaskItem) -> Unit,
+    private val onToggleSomeday: (taskItem: TaskItem) -> Unit = {}
 ) : BaseAdapter() {
 
     companion object {
@@ -77,8 +80,11 @@ class TaskAdapter(
 
     private val inflater = LayoutInflater.from(context)
     private var items: List<VisibleItem> = emptyList()
+    // Computed once per setItems call — avoids repeated LocalDate.now() in getView
+    private var today: LocalDate = LocalDate.now()
 
     fun setItems(newItems: List<VisibleItem>) {
+        today = LocalDate.now()
         items = newItems
         notifyDataSetChanged()
     }
@@ -115,6 +121,22 @@ class TaskAdapter(
                 // Build display text (contexts and projects shown as pills below)
                 holder.taskText.text = task.displayText
 
+                // Frozen: grey italic; Someday: muted amber; normal otherwise
+                when {
+                    task.isFrozen -> {
+                        holder.taskText.setTextColor(Color.GRAY)
+                        holder.taskText.setTypeface(null, Typeface.ITALIC)
+                    }
+                    task.isSomeday -> {
+                        holder.taskText.setTextColor(0xFF795548.toInt())  // brown-muted
+                        holder.taskText.setTypeface(null, Typeface.NORMAL)
+                    }
+                    else -> {
+                        holder.taskText.setTextColor(Color.BLACK)
+                        holder.taskText.setTypeface(null, Typeface.NORMAL)
+                    }
+                }
+
                 // Strike-through when completed
                 holder.taskText.paintFlags = if (task.completed)
                     holder.taskText.paintFlags or Paint.STRIKE_THRU_TEXT_FLAG
@@ -128,10 +150,13 @@ class TaskAdapter(
                 // Context (@) and project (+) tag pills — no prefix in the label
                 val tags = task.contexts.map { it to false } +
                            task.projects.map { it to true }
-                if (tags.isEmpty()) {
+                val showTags = tags.isNotEmpty() || task.isFrozen || task.isSomeday
+                if (!showTags) {
                     holder.tagsRow.visibility = View.GONE
                 } else {
                     holder.tagsRow.removeAllViews()
+                    if (task.isFrozen) holder.tagsRow.addView(makeFrozenBadge())
+                    if (task.isSomeday) holder.tagsRow.addView(makeSomedayBadge())
                     tags.forEach { (label, isProject) ->
                         holder.tagsRow.addView(makeTagPill(label, isProject))
                     }
@@ -151,7 +176,6 @@ class TaskAdapter(
                 // Due date
                 val due = task.dueDate
                 if (due != null) {
-                    val today = LocalDate.now()
                     val dueDate = LocalDate.parse(due)
                     val days = ChronoUnit.DAYS.between(today, dueDate)
                     val label = when {
@@ -175,13 +199,16 @@ class TaskAdapter(
                 // Completion checkbox (state indicator only)
                 holder.completedCheck.isChecked = task.completed
 
-                // Tap anywhere on the row = toggle completion; pencil = edit; long-press = context menu
-                view.setOnClickListener { onToggleComplete(item) }
+                // Tap anywhere on the row = toggle completion (or edit if frozen/someday); pencil = edit; long-press = context menu
+                view.setOnClickListener {
+                    if (task.isFrozen || task.isSomeday) onEdit(item) else onToggleComplete(item)
+                }
                 view.setOnLongClickListener {
                     showContextMenu(item)
                     true
                 }
                 holder.editButton.setOnClickListener { onEdit(item) }
+                holder.editButton.alpha = 1f
 
                 view
             }
@@ -209,16 +236,101 @@ class TaskAdapter(
         return tv
     }
 
-    private fun showContextMenu(item: TaskItem) {
-        val options = arrayOf(
-            context.getString(R.string.edit_task),
-            context.getString(R.string.delete)
+    private fun makeFrozenBadge(): TextView {
+        val tv = TextView(context)
+        val lp = LinearLayout.LayoutParams(
+            ViewGroup.LayoutParams.WRAP_CONTENT,
+            ViewGroup.LayoutParams.WRAP_CONTENT
         )
+        lp.setMargins(0, 0, 6, 0)
+        tv.layoutParams = lp
+        tv.text = context.getString(R.string.frozen_badge)
+        tv.textSize = 10f
+        tv.setTextColor(Color.WHITE)
+        tv.setPadding(10, 2, 10, 2)
+        val bg = GradientDrawable().apply {
+            shape = GradientDrawable.RECTANGLE
+            cornerRadius = 6f
+            setColor(0xFF607D8B.toInt())  // blue-grey
+        }
+        tv.background = bg
+        return tv
+    }
+
+    private fun makeSomedayBadge(): TextView {
+        val tv = TextView(context)
+        val lp = LinearLayout.LayoutParams(
+            ViewGroup.LayoutParams.WRAP_CONTENT,
+            ViewGroup.LayoutParams.WRAP_CONTENT
+        )
+        lp.setMargins(0, 0, 6, 0)
+        tv.layoutParams = lp
+        tv.text = context.getString(R.string.someday_badge)
+        tv.textSize = 10f
+        tv.setTextColor(Color.WHITE)
+        tv.setPadding(10, 2, 10, 2)
+        val bg = GradientDrawable().apply {
+            shape = GradientDrawable.RECTANGLE
+            cornerRadius = 6f
+            setColor(0xFFFF6F00.toInt())  // amber/orange
+        }
+        tv.background = bg
+        return tv
+    }
+
+    private fun showContextMenu(item: TaskItem) {
+        val task = item.task
+        val freezeLabel = if (task.isFrozen)
+            context.getString(R.string.unfreeze_task)
+        else
+            context.getString(R.string.freeze_task)
+        val somedayLabel = if (task.isSomeday)
+            context.getString(R.string.unsomeday_task)
+        else
+            context.getString(R.string.someday_task)
+
+        val options: Array<String>
+        if (task.isFrozen) {
+            // Frozen: edit, unfreeze (no delete, no someday toggle)
+            options = arrayOf(
+                context.getString(R.string.edit_task),
+                freezeLabel
+            )
+        } else if (task.isSomeday) {
+            // Someday: edit, remove-someday, freeze (no delete while someday)
+            options = arrayOf(
+                context.getString(R.string.edit_task),
+                somedayLabel,
+                freezeLabel
+            )
+        } else {
+            // Normal: edit, delete, freeze, mark-someday
+            options = arrayOf(
+                context.getString(R.string.edit_task),
+                context.getString(R.string.delete),
+                freezeLabel,
+                somedayLabel
+            )
+        }
+
         android.app.AlertDialog.Builder(context)
             .setItems(options) { _, which ->
-                when (which) {
-                    0 -> onEdit(item)
-                    1 -> onDelete(item)
+                when {
+                    task.isFrozen -> when (which) {
+                        0 -> onEdit(item)
+                        1 -> onToggleFreeze(item)
+                    }
+                    task.isSomeday -> when (which) {
+                        0 -> onEdit(item)
+                        1 -> onToggleSomeday(item)
+                        2 -> onToggleFreeze(item)
+                    }
+                    else -> when (which) {
+                        0 -> onEdit(item)
+                        1 -> onDelete(item)
+                        2 -> onToggleFreeze(item)
+                        3 -> onToggleSomeday(item)
+                    }
                 }
             }
             .show()

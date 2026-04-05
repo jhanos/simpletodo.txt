@@ -3,14 +3,11 @@ package io.github.todotxt.app.storage
 import android.content.Context
 import android.net.Uri
 import android.provider.DocumentsContract
-import android.util.Log
 import java.io.BufferedReader
 import java.io.InputStreamReader
 import java.io.OutputStreamWriter
 
 object FileStorage {
-
-    private const val TAG = "FileStorage"
 
     /**
      * Find a document with [displayName] inside [treeUri].
@@ -29,9 +26,7 @@ object FileStorage {
             val treeDocId = DocumentsContract.getTreeDocumentId(treeUri)
             val childrenUri = DocumentsContract.buildChildDocumentsUriUsingTree(treeUri, treeDocId)
 
-            val msg0 = "findFile: treeUri=$treeUri treeDocId=$treeDocId looking for=$displayName"
-            Log.d(TAG, msg0)
-            DebugLog.d(context, msg0)
+            DebugLog.d(context, "findFile: looking for=$displayName in treeDocId=$treeDocId")
 
             val cursor = context.contentResolver.query(
                 childrenUri,
@@ -42,32 +37,25 @@ object FileStorage {
                 null, null, null
             )
             if (cursor == null) {
-                val msg = "  query returned null cursor"
-                Log.e(TAG, msg); DebugLog.e(context, msg)
+                DebugLog.e(context, "findFile: query returned null cursor for $displayName")
                 return null
             }
             cursor.use {
-                val count = it.count
-                DebugLog.d(context, "  cursor rows=$count")
                 while (it.moveToNext()) {
                     val docId = it.getString(0)
                     val name  = it.getString(1)
-                    val msg = "  child docId=$docId displayName=$name"
-                    Log.d(TAG, msg); DebugLog.d(context, msg)
                     // Nextcloud may return "subdir/filename" — match on last segment
                     val lastName = name?.substringAfterLast('/') ?: name
                     if (lastName == displayName || name == displayName) {
                         val uri = DocumentsContract.buildDocumentUriUsingTree(treeUri, docId)
-                        val found = "  FOUND: $uri"
-                        Log.d(TAG, found); DebugLog.d(context, found)
+                        DebugLog.d(context, "findFile: FOUND $displayName -> $uri")
                         return uri
                     }
                 }
             }
-            DebugLog.e(context, "  NOT FOUND: $displayName")
+            DebugLog.e(context, "findFile: NOT FOUND: $displayName")
             null
         } catch (e: Exception) {
-            Log.e(TAG, "findFile failed for $displayName", e)
             DebugLog.e(context, "findFile EXCEPTION for $displayName", e)
             null
         }
@@ -94,7 +82,6 @@ object FileStorage {
             DebugLog.d(context, "readLines: got ${lines.size} lines from $uri")
             lines
         } catch (e: Exception) {
-            Log.e(TAG, "readLines failed for $uri", e)
             DebugLog.e(context, "readLines EXCEPTION for $uri", e)
             if (retryOnFailure) {
                 DebugLog.d(context, "readLines: retrying after 2s delay")
@@ -135,7 +122,6 @@ object FileStorage {
             DebugLog.d(context, "writeLines: done")
             true
         } catch (e: Exception) {
-            Log.e(TAG, "writeLines failed for $uri", e)
             DebugLog.e(context, "writeLines EXCEPTION for $uri", e)
             false
         }
@@ -156,7 +142,40 @@ object FileStorage {
             }
             true
         } catch (e: Exception) {
-            Log.e(TAG, "appendLines failed for $uri", e)
+            DebugLog.e(context, "appendLines EXCEPTION for $uri", e)
+            false
+        }
+    }
+
+    /**
+     * Read inbox.txt from [treeUri]. Returns parsed lines (including blank lines),
+     * or an empty list if the file is not found or on error.
+     */
+    fun readInboxLines(context: Context, treeUri: Uri): List<String> {
+        return try {
+            val uri = findFile(context, treeUri, "inbox.txt") ?: return emptyList()
+            val stream = context.contentResolver.openInputStream(uri) ?: return emptyList()
+            stream.use {
+                BufferedReader(InputStreamReader(it, Charsets.UTF_8)).readLines()
+            }
+        } catch (e: Exception) {
+            DebugLog.e(context, "readInboxLines EXCEPTION", e)
+            emptyList()
+        }
+    }
+
+    /**
+     * Write [lines] to inbox.txt in [treeUri]. Returns true on success.
+     */
+    fun writeInboxLines(context: Context, treeUri: Uri, lines: List<String>): Boolean {
+        return try {
+            val uri = findFile(context, treeUri, "inbox.txt") ?: run {
+                DebugLog.e(context, "writeInboxLines: inbox.txt not found in tree")
+                return false
+            }
+            writeLines(context, uri, lines)
+        } catch (e: Exception) {
+            DebugLog.e(context, "writeInboxLines EXCEPTION", e)
             false
         }
     }

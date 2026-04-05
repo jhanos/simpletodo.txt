@@ -8,6 +8,7 @@
     <string name="save">Save</string>
     <string name="cancel">Cancel</string>
     <string name="delete">Delete</string>
+    <string name="archive_label">Completed tasks</string>
     <string name="archive">Archive completed</string>
     <string name="archive_done">Archived %d tasks</string>
     <string name="archive_no_folder">Set a folder in Settings first</string>
@@ -42,6 +43,31 @@
     <string name="delete_confirm">Delete this task?</string>
     <string name="yes">Yes</string>
     <string name="no">No</string>
+    <!-- Navigation drawer views -->
+    <string name="nav_inbox">Inbox</string>
+    <string name="nav_next">Next</string>
+    <string name="nav_frozen">Frozen</string>
+    <string name="nav_scheduled">Scheduled</string>
+    <string name="nav_someday">Someday</string>
+
+    <!-- Someday -->
+    <string name="someday_label">Someday</string>
+    <string name="someday_badge">someday</string>
+    <string name="someday_task">Mark as Someday</string>
+    <string name="unsomeday_task">Remove Someday</string>
+
+    <!-- Inbox -->
+    <string name="inbox_title_hint">Project title…</string>
+    <string name="inbox_desc_hint">Description…</string>
+    <string name="inbox_no_file">inbox.txt not found in the todo folder. Create it in Nextcloud first.</string>
+    <string name="inbox_saved">Project saved</string>
+    <string name="inbox_deleted">Project deleted</string>
+    <string name="inbox_delete_confirm">Delete this project?</string>
+
+    <string name="frozen_label">Frozen</string>
+    <string name="freeze_task">Freeze task</string>
+    <string name="unfreeze_task">Unfreeze task</string>
+    <string name="frozen_badge">frozen</string>
     <string name="load_error">Could not load todo.txt</string>
     <string name="save_error">Could not save todo.txt</string>
     <string name="pref_tree_uri">pref_tree_uri</string>
@@ -57,6 +83,9 @@
     <string name="reminder_title">Task due today</string>
     <string name="reminder_rationale">Notification permission is needed to show task reminders.</string>
     <string name="reminder_permission_denied">Notification permission denied — reminders disabled.</string>
+    <string name="test_reminder">Send test notification</string>
+    <string name="test_reminder_scheduled">Test notification scheduled for %s</string>
+    <string name="reminder_no_tasks">No tasks due today</string>
 
     <!-- Due date picker -->
     <string name="due_date_label">Due date</string>
