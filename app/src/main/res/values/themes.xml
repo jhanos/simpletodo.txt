@@ -1,6 +1,28 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <style name="AppTheme" parent="android:Theme.Material.Light">
-        <item name="android:windowBackground">@android:color/white</item>
+
+    <!-- Action bar background style — white surface with dark title text -->
+    <style name="AppTheme.ActionBar" parent="android:Widget.Material.Light.ActionBar.Solid">
+        <item name="android:background">@color/colorPrimary</item>
+        <item name="android:titleTextStyle">@style/AppTheme.ActionBar.TitleText</item>
     </style>
+
+    <style name="AppTheme.ActionBar.TitleText" parent="android:TextAppearance.Material.Widget.ActionBar.Title">
+        <item name="android:textColor">@color/colorOnPrimary</item>
+    </style>
+
+    <style name="AppTheme" parent="android:Theme.Material.Light">
+        <item name="android:windowBackground">@color/colorBackground</item>
+        <item name="android:colorPrimary">@color/colorPrimary</item>
+        <item name="android:colorPrimaryDark">@color/colorPrimaryDark</item>
+        <!-- Force the action bar to use our explicit white-background style -->
+        <item name="android:actionBarStyle">@style/AppTheme.ActionBar</item>
+        <!-- Tint all action menu icons dark so they are visible on a white bar -->
+        <item name="android:actionMenuTextColor">@color/colorOnPrimary</item>
+        <!-- colorControlNormal drives the tint applied to vector drawables in the action bar -->
+        <item name="android:colorControlNormal">@color/colorOnPrimary</item>
+        <!-- Override the overflow / home-as-up button tint -->
+        <item name="android:textColorSecondary">@color/colorOnPrimary</item>
+    </style>
+
 </resources>
