@@ -223,10 +223,16 @@ class MainActivity : Activity() {
                 refreshList()
             }
             REQ_EDIT_TASK -> if (resultCode == RESULT_OK) {
-                val raw     = data?.getStringExtra(AddEditActivity.EXTRA_TASK_TEXT) ?: return
-                val oldText = data.getStringExtra(AddEditActivity.EXTRA_OLD_TASK_TEXT) ?: return
-                val oldTask = todoList.getAll().firstOrNull { it.text == oldText } ?: return
-                todoList.update(oldTask, Task(raw))
+                if (data?.getBooleanExtra(AddEditActivity.EXTRA_DELETE, false) == true) {
+                    val oldText = data.getStringExtra(AddEditActivity.EXTRA_OLD_TASK_TEXT) ?: return
+                    val oldTask = todoList.getAll().firstOrNull { it.text == oldText } ?: return
+                    todoList.remove(oldTask)
+                } else {
+                    val raw     = data?.getStringExtra(AddEditActivity.EXTRA_TASK_TEXT) ?: return
+                    val oldText = data.getStringExtra(AddEditActivity.EXTRA_OLD_TASK_TEXT) ?: return
+                    val oldTask = todoList.getAll().firstOrNull { it.text == oldText } ?: return
+                    todoList.update(oldTask, Task(raw))
+                }
                 saveTodoFile()
                 refreshList()
             }

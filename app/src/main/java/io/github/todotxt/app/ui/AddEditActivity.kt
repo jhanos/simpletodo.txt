@@ -31,6 +31,7 @@ class AddEditActivity : Activity() {
         const val EXTRA_OLD_TASK_TEXT = "old_task_text"
         const val EXTRA_ALL_CONTEXTS  = "all_contexts"
         const val EXTRA_ALL_PROJECTS  = "all_projects"
+        const val EXTRA_DELETE        = "delete"
 
         private val DEFAULT_CONTEXTS = listOf("phone", "mail")
 
@@ -175,6 +176,24 @@ class AddEditActivity : Activity() {
 
         findViewById<Button>(R.id.saveButton).setOnClickListener { save(existingText) }
         findViewById<Button>(R.id.cancelButton).setOnClickListener { finish() }
+
+        val deleteButton = findViewById<Button>(R.id.deleteButton)
+        if (existingText != null) {
+            deleteButton.visibility = View.VISIBLE
+            deleteButton.setOnClickListener {
+                android.app.AlertDialog.Builder(this)
+                    .setMessage(R.string.delete_confirm)
+                    .setPositiveButton(R.string.yes) { _, _ ->
+                        setResult(RESULT_OK, Intent().apply {
+                            putExtra(EXTRA_DELETE, true)
+                            putExtra(EXTRA_OLD_TASK_TEXT, existingText)
+                        })
+                        finish()
+                    }
+                    .setNegativeButton(R.string.no, null)
+                    .show()
+            }
+        }
     }
 
     // ── Due date helpers ──────────────────────────────────────────────────
