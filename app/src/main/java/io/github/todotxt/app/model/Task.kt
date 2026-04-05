@@ -244,8 +244,8 @@ class Task(text: String) {
                     continue
                 }
                 val token = BODY_MATCHERS
-                    .firstOrNull { (pattern, _) -> pattern.matchEntire(word) != null }
-                    ?.let { (pattern, factory) -> factory(pattern.matchEntire(word)!!) }
+                    .mapNotNull { (pattern, factory) -> pattern.matchEntire(word)?.let { factory(it) } }
+                    .firstOrNull()
                     ?: TextToken(word)
                 tokens += token
             }

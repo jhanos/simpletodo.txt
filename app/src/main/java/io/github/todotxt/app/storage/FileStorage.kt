@@ -148,6 +148,21 @@ object FileStorage {
     }
 
     /**
+     * Resolve the todo.txt [Uri] for a given tree. Returns the cached URI from
+     * [prefs] if available, otherwise finds it via [findFile] and caches it.
+     * Returns null if todo.txt does not exist in the tree.
+     */
+    fun resolveTodoUri(context: Context, prefs: android.content.SharedPreferences): Uri? {
+        val treeUriStr = prefs.getString(Prefs.TREE_URI, null) ?: return null
+        val treeUri = Uri.parse(treeUriStr)
+        val cached = prefs.getString(Prefs.TODO_URI, null)
+        if (cached != null) return Uri.parse(cached)
+        val resolved = findFile(context, treeUri, "todo.txt")
+        if (resolved != null) prefs.edit().putString(Prefs.TODO_URI, resolved.toString()).apply()
+        return resolved
+    }
+
+    /**
      * Read inbox.txt from [treeUri]. Returns parsed lines (including blank lines),
      * or an empty list if the file is not found or on error.
      */

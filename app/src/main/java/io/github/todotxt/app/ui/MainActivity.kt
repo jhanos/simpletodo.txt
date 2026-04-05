@@ -15,17 +15,18 @@ import android.widget.ListView
 import android.widget.TextView
 import android.widget.Toast
 import io.github.todotxt.app.R
+import io.github.todotxt.app.model.HeaderItem
 import io.github.todotxt.app.model.InboxItem
 import io.github.todotxt.app.model.InboxParser
 import io.github.todotxt.app.model.SortField
 import io.github.todotxt.app.model.Task
 import io.github.todotxt.app.model.TaskItem
 import io.github.todotxt.app.model.TodoList
+import io.github.todotxt.app.model.VisibleItem
 import io.github.todotxt.app.storage.DebugLog
 import io.github.todotxt.app.storage.FileStorage
+import io.github.todotxt.app.storage.Prefs
 import io.github.todotxt.app.storage.ReminderScheduler
-import java.time.LocalDate
-import java.time.format.DateTimeFormatter
 import java.util.concurrent.atomic.AtomicBoolean
 
 enum class ActiveView { INBOX, NEXT, FROZEN, SCHEDULED, SOMEDAY }
@@ -39,21 +40,6 @@ class MainActivity : Activity() {
         private const val REQ_SETTINGS     = 4
         private const val REQ_INBOX_ADD    = 5
         private const val REQ_INBOX_EDIT   = 6
-
-        private const val PREF_TREE_URI        = "pref_tree_uri"
-        private const val PREF_TODO_URI        = "pref_todo_uri"
-        private const val PREF_DONE_URI        = "pref_done_uri"
-        private const val PREF_TASK_CACHE      = "pref_task_cache"
-        private const val PREF_SORT_FIELD      = "pref_sort_field"
-        private const val PREF_SHOW_FUTURE     = "pref_show_future"
-        private const val PREF_FILTER_CONTEXTS = "pref_filter_contexts"
-        private const val PREF_FILTER_PROJECTS = "pref_filter_projects"
-        private const val PREF_FILTER_TEXT     = "pref_filter_text"
-        private const val PREF_ACTIVE_VIEW     = "pref_active_view"
-
-        private const val RESUME_RELOAD_DEBOUNCE_MS = 5_000L
-
-        private val DATE_FMT = DateTimeFormatter.ofPattern("yyyy-MM-dd")
     }
 
     private val todoList = TodoList()
@@ -63,11 +49,10 @@ class MainActivity : Activity() {
     private lateinit var drawerList: ListView
     private lateinit var drawerScrim: View
     private lateinit var fab: Button
-    private val prefs by lazy { getSharedPreferences("todotxt", MODE_PRIVATE) }
+    private val prefs by lazy { getSharedPreferences(Prefs.NAME, MODE_PRIVATE) }
 
     private val isSaving  = AtomicBoolean(false)
     private val isLoading = AtomicBoolean(false)
-    private var lastLoadMs: Long = 0
 
     // Current filter/sort state (used for non-inbox views)
     private var sortField      = SortField.PRIORITY
@@ -158,17 +143,6 @@ class MainActivity : Activity() {
         // Inbox is loaded on demand when switching to that view
     }
 
-    override fun onResume() {
-        super.onResume()
-        DebugLog.d(this, "=== MainActivity onResume ===")
-        val age = System.currentTimeMillis() - lastLoadMs
-        if (age < RESUME_RELOAD_DEBOUNCE_MS) {
-            DebugLog.d(this, "onResume: skipping reload — last load was ${age}ms ago")
-            return
-        }
-        loadTodoFile()
-    }
-
     // ── Options menu ──────────────────────────────────────────────────────
 
     override fun onCreateOptionsMenu(menu: Menu): Boolean {
@@ -179,6 +153,7 @@ class MainActivity : Activity() {
     override fun onOptionsItemSelected(item: MenuItem): Boolean {
         return when (item.itemId) {
             android.R.id.home    -> { toggleDrawer(); true }
+            R.id.action_sync     -> { syncNow(); true }
             R.id.action_filter   -> { openFilter(); true }
             R.id.action_settings -> { openSettings(); true }
             else -> super.onOptionsItemSelected(item)
@@ -218,8 +193,7 @@ class MainActivity : Activity() {
                 refreshList()
             }
             REQ_SETTINGS -> {
-                prefs.edit().remove(PREF_TODO_URI).remove(PREF_DONE_URI).apply()
-                lastLoadMs = 0
+                prefs.edit().remove(Prefs.TODO_URI).remove(Prefs.DONE_URI).apply()
                 loadTodoFile()
             }
             REQ_INBOX_ADD, REQ_INBOX_EDIT -> if (resultCode == RESULT_OK && data != null) {
@@ -248,7 +222,7 @@ class MainActivity : Activity() {
 
     private fun switchView(view: ActiveView) {
         activeView = view
-        prefs.edit().putString(PREF_ACTIVE_VIEW, view.name).apply()
+        prefs.edit().putString(Prefs.ACTIVE_VIEW, view.name).apply()
 
         // Highlight the selected drawer entry
         val idx = navViews.indexOf(view)
@@ -286,7 +260,7 @@ class MainActivity : Activity() {
     // ── Core task operations ──────────────────────────────────────────────
 
     private fun toggleComplete(item: TaskItem) {
-        val today = LocalDate.now().format(DATE_FMT)
+        val today = Prefs.todayString()
         if (item.task.completed) {
             todoList.markIncomplete(item.task)
         } else {
@@ -384,39 +358,43 @@ class MainActivity : Activity() {
         updateEmptyView()
     }
 
+    // ── Sync ──────────────────────────────────────────────────────────────
+
+    private fun syncNow() {
+        Toast.makeText(this, R.string.syncing, Toast.LENGTH_SHORT).show()
+        loadTodoFile(postLoad = { saveTodoFile() })
+    }
+
     // ── File I/O ──────────────────────────────────────────────────────────
 
-    private fun loadTodoFile() {
+    private fun loadTodoFile(postLoad: (() -> Unit)? = null) {
         if (isSaving.get()) { DebugLog.d(this, "loadTodoFile: skipped — write in flight"); return }
         if (!isLoading.compareAndSet(false, true)) { DebugLog.d(this, "loadTodoFile: already in flight"); return }
-        val treeUri = prefs.getString(PREF_TREE_URI, null)?.let { Uri.parse(it) }
-        if (treeUri == null) { DebugLog.d(this, "loadTodoFile: no tree URI"); isLoading.set(false); return }
-        val cachedUriStr = prefs.getString(PREF_TODO_URI, null)
+        if (prefs.getString(Prefs.TREE_URI, null) == null) {
+            DebugLog.d(this, "loadTodoFile: no tree URI")
+            isLoading.set(false)
+            return
+        }
         Thread {
             try {
                 if (isSaving.get()) { DebugLog.d(this, "loadTodoFile: skipped on thread"); return@Thread }
-                val uri: Uri? = if (cachedUriStr != null) {
-                    Uri.parse(cachedUriStr)
-                } else {
-                    val resolved = FileStorage.findFile(this, treeUri, "todo.txt")
-                    if (resolved != null) prefs.edit().putString(PREF_TODO_URI, resolved.toString()).apply()
-                    resolved
-                }
+                val uri = FileStorage.resolveTodoUri(this, prefs)
                 if (uri == null) {
                     runOnUiThread { Toast.makeText(this, R.string.load_error, Toast.LENGTH_SHORT).show() }
                     return@Thread
                 }
                 val lines = FileStorage.readLines(this, uri)
                 if (lines == null) {
-                    if (cachedUriStr != null) prefs.edit().remove(PREF_TODO_URI).apply()
+                    prefs.edit().remove(Prefs.TODO_URI).apply()
                     runOnUiThread { Toast.makeText(this, R.string.load_error, Toast.LENGTH_SHORT).show() }
                     return@Thread
                 }
                 todoList.loadFromLines(lines)
                 persistTaskCache(lines)
                 ReminderScheduler.schedule(this, prefs)
-                lastLoadMs = System.currentTimeMillis()
+                ReminderScheduler.scheduleDailySync(this)
                 runOnUiThread { if (activeView != ActiveView.INBOX) refreshList() }
+                postLoad?.invoke()
             } finally {
                 isLoading.set(false)
             }
@@ -424,26 +402,23 @@ class MainActivity : Activity() {
     }
 
     private fun saveTodoFile() {
+        if (prefs.getString(Prefs.TREE_URI, null) == null) return
         val lines = todoList.toLines()
-        val treeUri = prefs.getString(PREF_TREE_URI, null)?.let { Uri.parse(it) } ?: return
-        val cachedUriStr = prefs.getString(PREF_TODO_URI, null)
         isSaving.set(true)
         Thread {
             try {
-                val uri: Uri? = if (cachedUriStr != null) {
-                    Uri.parse(cachedUriStr)
-                } else {
-                    val resolved = FileStorage.findFile(this, treeUri, "todo.txt")
-                    if (resolved != null) prefs.edit().putString(PREF_TODO_URI, resolved.toString()).apply()
-                    resolved
+                val uri = FileStorage.resolveTodoUri(this, prefs)
+                if (uri == null) {
+                    runOnUiThread { Toast.makeText(this, R.string.save_error, Toast.LENGTH_SHORT).show() }
+                    return@Thread
                 }
-                if (uri == null) return@Thread
                 val ok = FileStorage.writeLines(this, uri, lines)
                 if (!ok) {
-                    prefs.edit().remove(PREF_TODO_URI).apply()
+                    prefs.edit().remove(Prefs.TODO_URI).apply()
                     runOnUiThread { Toast.makeText(this, R.string.save_error, Toast.LENGTH_SHORT).show() }
                 } else {
                     ReminderScheduler.schedule(this, prefs)
+                    ReminderScheduler.scheduleDailySync(this)
                 }
             } finally {
                 isSaving.set(false)
@@ -452,7 +427,7 @@ class MainActivity : Activity() {
     }
 
     private fun loadInboxFile() {
-        val treeUri = prefs.getString(PREF_TREE_URI, null)?.let { Uri.parse(it) } ?: return
+        val treeUri = prefs.getString(Prefs.TREE_URI, null)?.let { Uri.parse(it) } ?: return
         Thread {
             val lines = FileStorage.readInboxLines(this, treeUri)
             val items = InboxParser.parse(lines)
@@ -473,7 +448,7 @@ class MainActivity : Activity() {
     }
 
     private fun saveInboxFile() {
-        val treeUri = prefs.getString(PREF_TREE_URI, null)?.let { Uri.parse(it) } ?: return
+        val treeUri = prefs.getString(Prefs.TREE_URI, null)?.let { Uri.parse(it) } ?: return
         val lines = InboxParser.serialize(inboxItems)
         Thread {
             FileStorage.writeInboxLines(this, treeUri, lines)
@@ -483,24 +458,35 @@ class MainActivity : Activity() {
     // ── List refresh ──────────────────────────────────────────────────────
 
     private fun refreshList() {
-        val today = LocalDate.now().format(DATE_FMT)
-        val allTasks = todoList.getAll()
+        val today = Prefs.todayString()
 
-        val filtered = when (activeView) {
-            ActiveView.NEXT -> allTasks.filter { task ->
-                !task.completed && !task.isFrozen &&
-                (task.dueDate == null || task.dueDate!! <= today)
-            }
-            ActiveView.FROZEN -> allTasks.filter { it.isFrozen }
-            ActiveView.SCHEDULED -> allTasks.filter { it.dueDate != null }
-            ActiveView.SOMEDAY -> allTasks.filter { it.isSomeday }
+        val items: List<VisibleItem> = when (activeView) {
+            ActiveView.NEXT -> todoList.filteredAndGrouped(
+                showFuture     = showFuture,
+                today          = today,
+                filterContexts = filterContexts,
+                filterProjects = filterProjects,
+                filterText     = filterText,
+                sortField      = sortField
+            ).filter { it is HeaderItem || (it is TaskItem && !it.task.completed && !it.task.isFrozen) }
+
+            ActiveView.FROZEN -> todoList.getAll()
+                .filter { it.isFrozen }
+                .sortedWith(compareBy({ it.dueDate ?: "9999-99-99" }, { it.text }))
+                .map { TaskItem(it) }
+
+            ActiveView.SCHEDULED -> todoList.getAll()
+                .filter { it.dueDate != null }
+                .sortedWith(compareBy({ it.dueDate!! }, { it.text }))
+                .map { TaskItem(it) }
+
+            ActiveView.SOMEDAY -> todoList.getAll()
+                .filter { it.isSomeday }
+                .sortedWith(compareBy({ it.dueDate ?: "9999-99-99" }, { it.text }))
+                .map { TaskItem(it) }
+
             ActiveView.INBOX -> return  // handled separately
         }
-
-        // For non-default views just show tasks flat (no group headers) sorted by due date then text
-        val items = filtered
-            .sortedWith(compareBy({ it.dueDate ?: "9999-99-99" }, { it.text }))
-            .map { io.github.todotxt.app.model.TaskItem(it) }
 
         adapter.setItems(items)
         updateEmptyView()
@@ -517,7 +503,7 @@ class MainActivity : Activity() {
     // ── Task cache ────────────────────────────────────────────────────────
 
     private fun showCachedTasksIfAvailable() {
-        val cached = prefs.getString(PREF_TASK_CACHE, null) ?: return
+        val cached = prefs.getString(Prefs.TASK_CACHE, null) ?: return
         val lines = cached.split('\n').filter { it.isNotBlank() }
         if (lines.isEmpty()) return
         todoList.loadFromLines(lines)
@@ -525,20 +511,20 @@ class MainActivity : Activity() {
     }
 
     private fun persistTaskCache(lines: List<String>) {
-        prefs.edit().putString(PREF_TASK_CACHE, lines.joinToString("\n")).apply()
+        prefs.edit().putString(Prefs.TASK_CACHE, lines.joinToString("\n")).apply()
     }
 
     // ── Preferences ───────────────────────────────────────────────────────
 
     private fun loadPrefs() {
         val p = prefs
-        sortField      = SortField.valueOf(p.getString(PREF_SORT_FIELD, SortField.PRIORITY.name)!!)
-        showFuture     = p.getBoolean(PREF_SHOW_FUTURE, false)
-        filterContexts = p.getStringSet(PREF_FILTER_CONTEXTS, emptySet())!!
-        filterProjects = p.getStringSet(PREF_FILTER_PROJECTS, emptySet())!!
-        filterText     = p.getString(PREF_FILTER_TEXT, "") ?: ""
+        sortField      = SortField.valueOf(p.getString(Prefs.SORT_FIELD, SortField.PRIORITY.name)!!)
+        showFuture     = p.getBoolean(Prefs.SHOW_FUTURE, false)
+        filterContexts = p.getStringSet(Prefs.FILTER_CONTEXTS, emptySet())!!
+        filterProjects = p.getStringSet(Prefs.FILTER_PROJECTS, emptySet())!!
+        filterText     = p.getString(Prefs.FILTER_TEXT, "") ?: ""
         activeView     = try {
-            ActiveView.valueOf(p.getString(PREF_ACTIVE_VIEW, ActiveView.NEXT.name)!!)
+            ActiveView.valueOf(p.getString(Prefs.ACTIVE_VIEW, ActiveView.NEXT.name)!!)
         } catch (_: IllegalArgumentException) { ActiveView.NEXT }
 
         // Apply initial drawer selection + title
@@ -549,11 +535,11 @@ class MainActivity : Activity() {
 
     private fun savePrefs() {
         prefs.edit().apply {
-            putString(PREF_SORT_FIELD,      sortField.name)
-            putBoolean(PREF_SHOW_FUTURE,    showFuture)
-            putStringSet(PREF_FILTER_CONTEXTS, filterContexts)
-            putStringSet(PREF_FILTER_PROJECTS, filterProjects)
-            putString(PREF_FILTER_TEXT,     filterText)
+            putString(Prefs.SORT_FIELD,       sortField.name)
+            putBoolean(Prefs.SHOW_FUTURE,     showFuture)
+            putStringSet(Prefs.FILTER_CONTEXTS, filterContexts)
+            putStringSet(Prefs.FILTER_PROJECTS, filterProjects)
+            putString(Prefs.FILTER_TEXT,      filterText)
             apply()
         }
     }

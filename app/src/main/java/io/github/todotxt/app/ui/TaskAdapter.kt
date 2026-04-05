@@ -216,87 +216,34 @@ class TaskAdapter(
         }
     }
 
-    private fun makeTagPill(label: String, isProject: Boolean): TextView {
+    private fun makeTagPill(label: String, isProject: Boolean): TextView =
+        makeBadge(label, if (isProject) 0xFF2E7D32.toInt() else 0xFF1565C0.toInt())
+
+    private fun makeFrozenBadge(): TextView =
+        makeBadge(context.getString(R.string.frozen_badge), 0xFF607D8B.toInt())
+
+    private fun makeSomedayBadge(): TextView =
+        makeBadge(context.getString(R.string.someday_badge), 0xFFFF6F00.toInt())
+
+    private fun makeRecurringBadge(pattern: String): TextView =
+        makeBadge(context.getString(R.string.rec_badge) + " $pattern", 0xFF00897B.toInt())
+
+    /** Single factory for all badge/pill views — only label and background colour differ. */
+    private fun makeBadge(label: String, color: Int): TextView {
         val tv = TextView(context)
-        val lp = LinearLayout.LayoutParams(
+        tv.layoutParams = LinearLayout.LayoutParams(
             ViewGroup.LayoutParams.WRAP_CONTENT,
             ViewGroup.LayoutParams.WRAP_CONTENT
-        )
-        lp.setMargins(0, 0, 6, 0)
-        tv.layoutParams = lp
+        ).also { it.setMargins(0, 0, 6, 0) }
         tv.text = label
         tv.textSize = 10f
         tv.setTextColor(Color.WHITE)
         tv.setPadding(10, 2, 10, 2)
-        val bg = GradientDrawable().apply {
+        tv.background = GradientDrawable().apply {
             shape = GradientDrawable.RECTANGLE
             cornerRadius = 6f
-            setColor(if (isProject) 0xFF2E7D32.toInt() else 0xFF1565C0.toInt())
+            setColor(color)
         }
-        tv.background = bg
-        return tv
-    }
-
-    private fun makeFrozenBadge(): TextView {
-        val tv = TextView(context)
-        val lp = LinearLayout.LayoutParams(
-            ViewGroup.LayoutParams.WRAP_CONTENT,
-            ViewGroup.LayoutParams.WRAP_CONTENT
-        )
-        lp.setMargins(0, 0, 6, 0)
-        tv.layoutParams = lp
-        tv.text = context.getString(R.string.frozen_badge)
-        tv.textSize = 10f
-        tv.setTextColor(Color.WHITE)
-        tv.setPadding(10, 2, 10, 2)
-        val bg = GradientDrawable().apply {
-            shape = GradientDrawable.RECTANGLE
-            cornerRadius = 6f
-            setColor(0xFF607D8B.toInt())  // blue-grey
-        }
-        tv.background = bg
-        return tv
-    }
-
-    private fun makeSomedayBadge(): TextView {
-        val tv = TextView(context)
-        val lp = LinearLayout.LayoutParams(
-            ViewGroup.LayoutParams.WRAP_CONTENT,
-            ViewGroup.LayoutParams.WRAP_CONTENT
-        )
-        lp.setMargins(0, 0, 6, 0)
-        tv.layoutParams = lp
-        tv.text = context.getString(R.string.someday_badge)
-        tv.textSize = 10f
-        tv.setTextColor(Color.WHITE)
-        tv.setPadding(10, 2, 10, 2)
-        val bg = GradientDrawable().apply {
-            shape = GradientDrawable.RECTANGLE
-            cornerRadius = 6f
-            setColor(0xFFFF6F00.toInt())  // amber/orange
-        }
-        tv.background = bg
-        return tv
-    }
-
-    private fun makeRecurringBadge(pattern: String): TextView {
-        val tv = TextView(context)
-        val lp = LinearLayout.LayoutParams(
-            ViewGroup.LayoutParams.WRAP_CONTENT,
-            ViewGroup.LayoutParams.WRAP_CONTENT
-        )
-        lp.setMargins(0, 0, 6, 0)
-        tv.layoutParams = lp
-        tv.text = context.getString(R.string.rec_badge) + " $pattern"
-        tv.textSize = 10f
-        tv.setTextColor(Color.WHITE)
-        tv.setPadding(10, 2, 10, 2)
-        val bg = GradientDrawable().apply {
-            shape = GradientDrawable.RECTANGLE
-            cornerRadius = 6f
-            setColor(0xFF00897B.toInt())  // teal
-        }
-        tv.background = bg
         return tv
     }
 

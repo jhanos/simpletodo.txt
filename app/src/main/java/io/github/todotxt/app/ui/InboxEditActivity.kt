@@ -3,15 +3,10 @@ package io.github.todotxt.app.ui
 import android.app.Activity
 import android.app.AlertDialog
 import android.content.Intent
-import android.net.Uri
 import android.os.Bundle
 import android.widget.Button
 import android.widget.EditText
-import android.widget.Toast
 import io.github.todotxt.app.R
-import io.github.todotxt.app.model.InboxItem
-import io.github.todotxt.app.model.InboxParser
-import io.github.todotxt.app.storage.FileStorage
 
 class InboxEditActivity : Activity() {
 

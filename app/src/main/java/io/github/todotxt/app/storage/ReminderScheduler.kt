@@ -7,20 +7,22 @@ import android.content.Intent
 import android.content.SharedPreferences
 import android.os.Build
 import io.github.todotxt.app.model.Task
-import java.time.LocalDate
 import java.time.LocalDateTime
 import java.time.ZoneId
-import java.time.format.DateTimeFormatter
 
 object ReminderScheduler {
 
     const val PREF_REMINDERS_ENABLED = "pref_reminders_enabled"
-    const val PREF_REMINDER_TIME     = "pref_reminder_time"   // "HH:MM"
 
     private const val ACTION_REMINDER      = "io.github.todotxt.app.REMINDER"
+    const val         ACTION_SYNC          = "io.github.todotxt.app.SYNC"
     private const val REQUEST_CODE         = 1001
     private const val REQUEST_CODE_TEST    = 1002
-    private val DATE_FMT = DateTimeFormatter.ofPattern("yyyy-MM-dd")
+    private const val REQUEST_CODE_SYNC    = 1003
+
+    // Daily background sync fires at this time (24-hour, local time)
+    private const val SYNC_HOUR   = 3
+    private const val SYNC_MINUTE = 0
 
     /**
      * Schedule (or cancel) the single daily reminder alarm.
@@ -47,7 +49,7 @@ object ReminderScheduler {
             return
         }
 
-        val timeStr = prefs.getString(PREF_REMINDER_TIME, "09:00") ?: "09:00"
+        val timeStr = prefs.getString(Prefs.REMINDER_TIME, "09:00") ?: "09:00"
         val (hour, minute) = parseTime(timeStr)
 
         val now = LocalDateTime.now()
@@ -107,6 +109,56 @@ object ReminderScheduler {
      */
     fun tasksToRemind(tasks: List<Task>, today: String): List<Task> =
         tasks.filter { !it.completed && it.dueDate != null && it.dueDate!! <= today }
+
+    /**
+     * Arm the daily background sync alarm for [SYNC_HOUR]:[SYNC_MINUTE] local
+     * time.  Fires [ACTION_SYNC] into [ReminderReceiver], which performs a
+     * SAF read→write to flush Nextcloud's cache, then calls this again to
+     * re-arm for the next day.
+     *
+     * Safe to call repeatedly — uses FLAG_UPDATE_CURRENT so it replaces any
+     * existing alarm with the same request code.
+     *
+     * Call from:
+     *  - MainActivity.loadTodoFile / saveTodoFile (alongside schedule())
+     *  - ReminderReceiver on BOOT_COMPLETED
+     *  - ReminderReceiver after the sync alarm fires (to re-arm)
+     */
+    fun scheduleDailySync(context: Context) {
+        val alarmMgr = context.getSystemService(Context.ALARM_SERVICE) as AlarmManager
+        val pi = buildSyncPendingIntent(context)
+
+        val now = LocalDateTime.now()
+        var trigger = now.toLocalDate().atTime(SYNC_HOUR, SYNC_MINUTE)
+        if (!trigger.isAfter(now)) trigger = trigger.plusDays(1)
+
+        val triggerMs = trigger.atZone(ZoneId.systemDefault()).toInstant().toEpochMilli()
+
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S && !alarmMgr.canScheduleExactAlarms()) {
+            alarmMgr.setAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, triggerMs, pi)
+            DebugLog.d(context, "ReminderScheduler: daily sync (inexact) set for $trigger")
+        } else {
+            alarmMgr.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, triggerMs, pi)
+            DebugLog.d(context, "ReminderScheduler: daily sync alarm set for $trigger")
+        }
+    }
+
+    /** Cancel the daily sync alarm (e.g. when the folder is deselected). */
+    fun cancelDailySync(context: Context) {
+        val alarmMgr = context.getSystemService(Context.ALARM_SERVICE) as AlarmManager
+        alarmMgr.cancel(buildSyncPendingIntent(context))
+        DebugLog.d(context, "ReminderScheduler: daily sync alarm cancelled")
+    }
+
+    private fun buildSyncPendingIntent(context: Context): PendingIntent {
+        val intent = Intent(ACTION_SYNC).apply { setPackage(context.packageName) }
+        return PendingIntent.getBroadcast(
+            context,
+            REQUEST_CODE_SYNC,
+            intent,
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+        )
+    }
 
     private fun buildPendingIntent(context: Context): PendingIntent {
         val intent = Intent(ACTION_REMINDER).apply {

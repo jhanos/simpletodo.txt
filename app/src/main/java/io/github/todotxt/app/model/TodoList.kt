@@ -130,7 +130,6 @@ class TodoList {
     /**
      * Return the visible list after applying all filters and sorting.
      *
-     * @param showCompleted  include completed tasks
      * @param showFuture     include tasks whose threshold date is in the future
      * @param today          today as "YYYY-MM-DD" for threshold comparison
      * @param filterContexts only show tasks matching ALL of these contexts (empty = no filter)
