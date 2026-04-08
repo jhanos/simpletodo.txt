@@ -191,7 +191,7 @@ class MainActivity : Activity() {
         loadPrefs()
         rebuildDrawer()
         showCachedTasksIfAvailable()
-        loadTodoFile()
+        startupSync()
         // Inbox is loaded on demand when switching to that view
     }
 
@@ -484,6 +484,16 @@ class MainActivity : Activity() {
 
     // ── Sync ──────────────────────────────────────────────────────────────
 
+    private fun startupSync() {
+        val lastSync = prefs.getString(Prefs.LAST_SYNC_DATE, null)
+        if (lastSync != Prefs.todayString()) {
+            // First open of the day — flush cache to SAF then pull
+            saveTodoFile(postSave = { loadTodoFile() })
+        } else {
+            loadTodoFile()
+        }
+    }
+
     private fun syncNow() {
         Toast.makeText(this, R.string.syncing, Toast.LENGTH_SHORT).show()
         saveTodoFile(postSave = { loadTodoFile() })
@@ -516,7 +526,6 @@ class MainActivity : Activity() {
                 todoList.loadFromLines(lines)
                 persistTaskCache(lines)
                 ReminderScheduler.schedule(this, prefs)
-                ReminderScheduler.scheduleDailySync(this)
                 runOnUiThread {
                     if (activeView != ActiveView.INBOX) refreshList()
                     rebuildDrawer()
@@ -544,8 +553,8 @@ class MainActivity : Activity() {
                     runOnUiThread { Toast.makeText(this, R.string.save_error, Toast.LENGTH_SHORT).show() }
                 } else {
                     isDirty = false
+                    prefs.edit().putString(Prefs.LAST_SYNC_DATE, Prefs.todayString()).apply()
                     ReminderScheduler.schedule(this, prefs)
-                    ReminderScheduler.scheduleDailySync(this)
                     postSave?.invoke()
                 }
             } finally {

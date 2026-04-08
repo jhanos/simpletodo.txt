@@ -23,6 +23,7 @@ object Prefs {
     const val ACTIVE_VIEW     = "pref_active_view"
     const val ACTIVE_PROJECT  = "pref_active_project"
     const val REMINDER_TIME   = "pref_reminder_time"
+    const val LAST_SYNC_DATE  = "pref_last_sync_date"
 
     /** Today's date as "YYYY-MM-DD". Equivalent to LocalDate.now().toString(). */
     fun todayString(): String = LocalDate.now().toString()

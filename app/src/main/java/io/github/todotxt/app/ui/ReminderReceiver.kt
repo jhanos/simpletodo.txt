@@ -6,11 +6,9 @@ import android.app.PendingIntent
 import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
-import android.net.Uri
 import io.github.todotxt.app.R
 import io.github.todotxt.app.model.Task
 import io.github.todotxt.app.storage.DebugLog
-import io.github.todotxt.app.storage.FileStorage
 import io.github.todotxt.app.storage.Prefs
 import io.github.todotxt.app.storage.ReminderScheduler
 
@@ -22,8 +20,7 @@ class ReminderReceiver : BroadcastReceiver() {
         /**
          * Post reminder notifications immediately using the current task cache.
          * If there are tasks due today or overdue, one notification per task is
-         * posted.  If there are no due tasks, a single placeholder notification
-         * is posted so the user can verify the channel is working.
+         * posted.  If there are no due tasks, nothing is posted.
          *
          * Safe to call from any context (Settings test button or alarm receiver).
          */
@@ -89,69 +86,15 @@ class ReminderReceiver : BroadcastReceiver() {
             nm.createNotificationChannel(channel)
             DebugLog.d(context, "ReminderReceiver: notification channel created")
         }
-
-        /**
-         * Flush the task cache (last known in-memory state) to SAF so that
-         * Nextcloud picks up any mutations the user made since the last manual sync.
-         */
-        fun performBackgroundSync(context: Context, prefs: android.content.SharedPreferences) {
-            val treeUriStr = prefs.getString(Prefs.TREE_URI, null) ?: run {
-                DebugLog.d(context, "BackgroundSync: no tree URI — skipping")
-                return
-            }
-            val treeUri = Uri.parse(treeUriStr)
-
-            // Resolve or find the todo.txt URI
-            val cachedUriStr = prefs.getString(Prefs.TODO_URI, null)
-            val uri: Uri? = if (cachedUriStr != null) {
-                Uri.parse(cachedUriStr)
-            } else {
-                val resolved = FileStorage.findFile(context, treeUri, "todo.txt")
-                if (resolved != null) prefs.edit().putString(Prefs.TODO_URI, resolved.toString()).apply()
-                resolved
-            }
-
-            if (uri == null) {
-                DebugLog.d(context, "BackgroundSync: todo.txt not found — skipping")
-                return
-            }
-
-            // Flush whatever the user last had in-memory (task cache) to SAF
-            val cached = prefs.getString(Prefs.TASK_CACHE, null)
-            if (cached == null) {
-                DebugLog.d(context, "BackgroundSync: no task cache — skipping")
-                return
-            }
-            val lines = cached.split('\n').filter { it.isNotBlank() }
-            val ok = FileStorage.writeLines(context, uri, lines)
-            DebugLog.d(context, "BackgroundSync: write ${if (ok) "succeeded" else "failed"}")
-        }
     }
 
     override fun onReceive(context: Context, intent: Intent) {
         val prefs = context.getSharedPreferences(Prefs.NAME, Context.MODE_PRIVATE)
 
-        when (intent.action) {
-            Intent.ACTION_BOOT_COMPLETED -> {
-                DebugLog.d(context, "ReminderReceiver: BOOT_COMPLETED — rescheduling alarms")
-                ReminderScheduler.schedule(context, prefs)
-                ReminderScheduler.scheduleDailySync(context)
-                return
-            }
-            ReminderScheduler.ACTION_SYNC -> {
-                DebugLog.d(context, "ReminderReceiver: daily sync alarm fired")
-                val result = goAsync()
-                Thread {
-                    try {
-                        performBackgroundSync(context, prefs)
-                    } finally {
-                        result.finish()
-                    }
-                    // Re-arm for tomorrow
-                    ReminderScheduler.scheduleDailySync(context)
-                }.start()
-                return
-            }
+        if (intent.action == Intent.ACTION_BOOT_COMPLETED) {
+            DebugLog.d(context, "ReminderReceiver: BOOT_COMPLETED — rescheduling alarms")
+            ReminderScheduler.schedule(context, prefs)
+            return
         }
 
         // Daily reminder alarm fired — post notifications then re-arm for tomorrow
