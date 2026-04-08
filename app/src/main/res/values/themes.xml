@@ -1,8 +1,8 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
 
-    <!-- Action bar background style — white surface with dark title text -->
-    <style name="AppTheme.ActionBar" parent="android:Widget.Material.Light.ActionBar.Solid">
+    <!-- Action bar background style — dark surface with light title text -->
+    <style name="AppTheme.ActionBar" parent="android:Widget.Material.ActionBar.Solid">
         <item name="android:background">@color/colorPrimary</item>
         <item name="android:titleTextStyle">@style/AppTheme.ActionBar.TitleText</item>
     </style>
@@ -11,13 +11,13 @@
         <item name="android:textColor">@color/colorOnPrimary</item>
     </style>
 
-    <style name="AppTheme" parent="android:Theme.Material.Light">
+    <style name="AppTheme" parent="android:Theme.Material">
         <item name="android:windowBackground">@color/colorBackground</item>
         <item name="android:colorPrimary">@color/colorPrimary</item>
         <item name="android:colorPrimaryDark">@color/colorPrimaryDark</item>
-        <!-- Force the action bar to use our explicit white-background style -->
+        <!-- Force the action bar to use our explicit dark-background style -->
         <item name="android:actionBarStyle">@style/AppTheme.ActionBar</item>
-        <!-- Tint all action menu icons dark so they are visible on a white bar -->
+        <!-- Tint all action menu icons light so they are visible on a dark bar -->
         <item name="android:actionMenuTextColor">@color/colorOnPrimary</item>
         <!-- colorControlNormal drives the tint applied to vector drawables in the action bar -->
         <item name="android:colorControlNormal">@color/colorOnPrimary</item>

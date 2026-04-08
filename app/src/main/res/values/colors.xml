@@ -1,23 +1,23 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <!-- App bar / primary surface -->
-    <color name="colorPrimary">#FFFFFF</color>
-    <color name="colorPrimaryDark">#E0E0E0</color>
+    <color name="colorPrimary">#1E1E1E</color>
+    <color name="colorPrimaryDark">#121212</color>
 
     <!-- Icons and text drawn on top of the primary surface (action bar) -->
-    <color name="colorOnPrimary">#333333</color>
+    <color name="colorOnPrimary">#EEEEEE</color>
 
     <!-- Window / content background -->
-    <color name="colorBackground">#FFFFFF</color>
+    <color name="colorBackground">#121212</color>
 
     <!-- Toolbar / menu icon fill color -->
-    <color name="iconFill">#333333</color>
+    <color name="iconFill">#EEEEEE</color>
 
     <!-- FAB -->
     <color name="fabBackground">#FF000000</color>
 
     <!-- Task list badge backgrounds -->
-    <color name="priorityBadge">#FF555555</color>
+    <color name="priorityBadge">#FF888888</color>
     <color name="contextBadge">#FF1565C0</color>
     <color name="projectBadge">#FF2E7D32</color>
 </resources>

@@ -11,5 +11,5 @@
     android:textSize="12sp"
     android:textAllCaps="true"
     android:textStyle="bold"
-    android:textColor="@android:color/darker_gray"
-    android:background="@android:color/background_light" />
+    android:textColor="#AAAAAA"
+    android:background="#1AFFFFFF" />

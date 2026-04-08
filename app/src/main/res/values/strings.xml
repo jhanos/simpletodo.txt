@@ -90,8 +90,6 @@
     <string name="reminder_permission_denied">Notification permission denied — reminders disabled.</string>
     <string name="test_reminder">Send test notification</string>
     <string name="test_reminder_scheduled">Test notification scheduled for %s</string>
-    <string name="reminder_no_tasks">No tasks due today</string>
-
     <!-- Due date picker -->
     <string name="due_date_label">Due date</string>
     <string name="due_date_none">None (tap to set)</string>

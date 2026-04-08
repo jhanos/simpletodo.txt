@@ -114,6 +114,7 @@ class MainActivity : Activity() {
 
     private val isSaving  = AtomicBoolean(false)
     private val isLoading = AtomicBoolean(false)
+    private var isDirty   = false
 
     // Current filter/sort state (used for non-inbox views)
     private var sortField      = SortField.PRIORITY
@@ -219,7 +220,7 @@ class MainActivity : Activity() {
             REQ_ADD_TASK -> if (resultCode == RESULT_OK) {
                 val raw = data?.getStringExtra(AddEditActivity.EXTRA_TASK_TEXT) ?: return
                 todoList.add(Task(raw))
-                saveTodoFile()
+                markDirty()
                 refreshList()
             }
             REQ_EDIT_TASK -> if (resultCode == RESULT_OK) {
@@ -233,7 +234,7 @@ class MainActivity : Activity() {
                     val oldTask = todoList.getAll().firstOrNull { it.text == oldText } ?: return
                     todoList.update(oldTask, Task(raw))
                 }
-                saveTodoFile()
+                markDirty()
                 refreshList()
             }
             REQ_FILTER -> if (resultCode == RESULT_OK && data != null) {
@@ -389,7 +390,7 @@ class MainActivity : Activity() {
         } else {
             todoList.markComplete(item.task, today)
         }
-        saveTodoFile()
+        markDirty()
         refreshList()
     }
 
@@ -409,7 +410,7 @@ class MainActivity : Activity() {
             .setMessage(R.string.delete_confirm)
             .setPositiveButton(R.string.yes) { _, _ ->
                 todoList.remove(item.task)
-                saveTodoFile()
+                markDirty()
                 refreshList()
             }
             .setNegativeButton(R.string.no, null)
@@ -418,13 +419,13 @@ class MainActivity : Activity() {
 
     private fun toggleFreeze(item: TaskItem) {
         item.task.isFrozen = !item.task.isFrozen
-        saveTodoFile()
+        markDirty()
         refreshList()
     }
 
     private fun toggleSomeday(item: TaskItem) {
         item.task.isSomeday = !item.task.isSomeday
-        saveTodoFile()
+        markDirty()
         refreshList()
     }
 
@@ -485,12 +486,12 @@ class MainActivity : Activity() {
 
     private fun syncNow() {
         Toast.makeText(this, R.string.syncing, Toast.LENGTH_SHORT).show()
-        loadTodoFile(postLoad = { saveTodoFile() })
+        saveTodoFile(postSave = { loadTodoFile() })
     }
 
     // ── File I/O ──────────────────────────────────────────────────────────
 
-    private fun loadTodoFile(postLoad: (() -> Unit)? = null) {
+    private fun loadTodoFile() {
         if (isSaving.get()) { DebugLog.d(this, "loadTodoFile: skipped — write in flight"); return }
         if (!isLoading.compareAndSet(false, true)) { DebugLog.d(this, "loadTodoFile: already in flight"); return }
         if (prefs.getString(Prefs.TREE_URI, null) == null) {
@@ -520,14 +521,13 @@ class MainActivity : Activity() {
                     if (activeView != ActiveView.INBOX) refreshList()
                     rebuildDrawer()
                 }
-                postLoad?.invoke()
             } finally {
                 isLoading.set(false)
             }
         }.start()
     }
 
-    private fun saveTodoFile() {
+    private fun saveTodoFile(postSave: (() -> Unit)? = null) {
         if (prefs.getString(Prefs.TREE_URI, null) == null) return
         val lines = todoList.toLines()
         isSaving.set(true)
@@ -543,8 +543,10 @@ class MainActivity : Activity() {
                     prefs.edit().remove(Prefs.TODO_URI).apply()
                     runOnUiThread { Toast.makeText(this, R.string.save_error, Toast.LENGTH_SHORT).show() }
                 } else {
+                    isDirty = false
                     ReminderScheduler.schedule(this, prefs)
                     ReminderScheduler.scheduleDailySync(this)
+                    postSave?.invoke()
                 }
             } finally {
                 isSaving.set(false)
@@ -658,8 +660,18 @@ class MainActivity : Activity() {
         if (activeView != ActiveView.INBOX) refreshList()
     }
 
+    private fun markDirty() {
+        isDirty = true
+        persistTaskCache(todoList.toLines())
+    }
+
     private fun persistTaskCache(lines: List<String>) {
         prefs.edit().putString(Prefs.TASK_CACHE, lines.joinToString("\n")).apply()
+    }
+
+    override fun onStop() {
+        super.onStop()
+        if (isDirty) persistTaskCache(todoList.toLines())
     }
 
     // ── Preferences ───────────────────────────────────────────────────────

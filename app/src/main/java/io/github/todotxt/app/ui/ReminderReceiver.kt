@@ -43,27 +43,10 @@ class ReminderReceiver : BroadcastReceiver() {
             val due = ReminderScheduler.tasksToRemind(tasks, today)
             DebugLog.d(context, "ReminderReceiver.fireNow: ${due.size} tasks due or overdue")
 
-            if (due.isEmpty()) {
-                // Post a placeholder so the user can confirm the channel works
-                val tapIntent = PendingIntent.getActivity(
-                    context, 0,
-                    Intent(context, MainActivity::class.java).apply {
-                        flags = Intent.FLAG_ACTIVITY_SINGLE_TOP
-                    },
-                    PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
-                )
-                val notification = android.app.Notification.Builder(context, CHANNEL_ID)
-                    .setSmallIcon(android.R.drawable.ic_popup_reminder)
-                    .setContentTitle(context.getString(R.string.reminder_title))
-                    .setContentText(context.getString(R.string.reminder_no_tasks))
-                    .setContentIntent(tapIntent)
-                    .setAutoCancel(true)
-                    .build()
-                nm.notify("no_tasks".hashCode(), notification)
-            } else {
-                due.forEachIndexed { index, task ->
-                    postNotification(context, nm, index, task)
-                }
+            if (due.isEmpty()) return
+
+            due.forEachIndexed { index, task ->
+                postNotification(context, nm, index, task)
             }
         }
 
@@ -108,9 +91,8 @@ class ReminderReceiver : BroadcastReceiver() {
         }
 
         /**
-         * Read todo.txt from SAF then write it back. This forces Nextcloud's SAF
-         * provider to pull the latest version from the server and immediately push
-         * any local changes back, effectively bidirectional syncing.
+         * Flush the task cache (last known in-memory state) to SAF so that
+         * Nextcloud picks up any mutations the user made since the last manual sync.
          */
         fun performBackgroundSync(context: Context, prefs: android.content.SharedPreferences) {
             val treeUriStr = prefs.getString(Prefs.TREE_URI, null) ?: run {
@@ -134,12 +116,13 @@ class ReminderReceiver : BroadcastReceiver() {
                 return
             }
 
-            val lines = FileStorage.readLines(context, uri)
-            if (lines == null) {
-                DebugLog.d(context, "BackgroundSync: read failed — skipping write")
+            // Flush whatever the user last had in-memory (task cache) to SAF
+            val cached = prefs.getString(Prefs.TASK_CACHE, null)
+            if (cached == null) {
+                DebugLog.d(context, "BackgroundSync: no task cache — skipping")
                 return
             }
-
+            val lines = cached.split('\n').filter { it.isNotBlank() }
             val ok = FileStorage.writeLines(context, uri, lines)
             DebugLog.d(context, "BackgroundSync: write ${if (ok) "succeeded" else "failed"}")
         }

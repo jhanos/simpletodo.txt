@@ -16,7 +16,7 @@
             android:id="@+id/listView"
             android:layout_width="match_parent"
             android:layout_height="match_parent"
-            android:divider="@android:color/darker_gray"
+            android:divider="#33FFFFFF"
             android:dividerHeight="0.5dp"
             android:scrollbarStyle="outsideOverlay" />
 
@@ -57,8 +57,8 @@
         android:layout_width="240dp"
         android:layout_height="match_parent"
         android:layout_gravity="start"
-        android:background="@android:color/white"
-        android:divider="@android:color/darker_gray"
+        android:background="@color/colorPrimary"
+        android:divider="#33FFFFFF"
         android:dividerHeight="0.5dp"
         android:choiceMode="singleChoice"
         android:elevation="8dp"
