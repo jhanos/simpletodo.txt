@@ -132,7 +132,7 @@ class TaskAdapter(
                         holder.taskText.setTypeface(null, Typeface.NORMAL)
                     }
                     else -> {
-                        holder.taskText.setTextColor(Color.BLACK)
+                        holder.taskText.setTextColor(0xFFEEEEEE.toInt())
                         holder.taskText.setTypeface(null, Typeface.NORMAL)
                     }
                 }
