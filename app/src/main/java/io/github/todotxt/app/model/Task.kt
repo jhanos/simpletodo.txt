@@ -34,14 +34,18 @@ class Task(text: String) {
             invalidateCache()
         }
 
-    // ── String caches ─────────────────────────────────────────────────────
+    // ── String / list caches ──────────────────────────────────────────────
 
     private var _text: String? = null
     private var _displayText: String? = null
+    private var _contexts: List<String>? = null
+    private var _projects: List<String>? = null
 
     private fun invalidateCache() {
         _text = null
         _displayText = null
+        _contexts = null
+        _projects = null
     }
 
     // ── Derived properties ────────────────────────────────────────────────
@@ -134,10 +138,12 @@ class Task(text: String) {
         }
 
     val contexts: List<String>
-        get() = _tokens.filterIsInstance<ContextToken>().map { it.value }
+        get() = _contexts ?: _tokens.filterIsInstance<ContextToken>().map { it.value }
+            .also { _contexts = it }
 
     val projects: List<String>
-        get() = _tokens.filterIsInstance<ProjectToken>().map { it.value }
+        get() = _projects ?: _tokens.filterIsInstance<ProjectToken>().map { it.value }
+            .also { _projects = it }
 
     // ── Mutations ─────────────────────────────────────────────────────────
 
@@ -237,12 +243,9 @@ class Task(text: String) {
                 words = words.drop(1)
             }
 
-            // 4. Remaining body tokens — try each matcher in priority order
+            // 4. Remaining body tokens — skip empty words, try each matcher in priority order
             for (word in words) {
-                if (word.isEmpty()) {
-                    tokens += WhitespaceToken
-                    continue
-                }
+                if (word.isEmpty()) continue
                 val token = BODY_MATCHERS
                     .mapNotNull { (pattern, factory) -> pattern.matchEntire(word)?.let { factory(it) } }
                     .firstOrNull()
@@ -279,8 +282,7 @@ class Task(text: String) {
 
 sealed interface TToken { val text: String }
 
-object CompletedToken  : TToken { override val text = "x" }
-object WhitespaceToken : TToken { override val text = "" }
+object CompletedToken : TToken { override val text = "x" }
 
 data class CompletedDateToken(val value: String)   : TToken { override val text = value }
 data class CreateDateToken(val value: String)       : TToken { override val text = value }

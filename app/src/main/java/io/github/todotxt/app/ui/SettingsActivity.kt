@@ -57,19 +57,7 @@ class SettingsActivity : Activity() {
             startActivityForResult(Intent(Intent.ACTION_OPEN_DOCUMENT_TREE), REQ_OPEN_TREE)
         }
 
-        remindersSwitch.setOnCheckedChangeListener { _, isChecked ->
-            if (isChecked) {
-                requestNotificationPermissionIfNeeded { granted ->
-                    if (granted) {
-                        setRemindersEnabled(true)
-                    } else {
-                        remindersSwitch.isChecked = false
-                    }
-                }
-            } else {
-                setRemindersEnabled(false)
-            }
-        }
+        remindersSwitch.setOnCheckedChangeListener(makeRemindersCheckedChangeListener())
 
         reminderTimeRow.setOnClickListener {
             val current = prefs.getString(Prefs.REMINDER_TIME, "15:00") ?: "15:00"
@@ -179,7 +167,17 @@ class SettingsActivity : Activity() {
         // Temporarily suppress the listener while we programmatically update the switch
         remindersSwitch.setOnCheckedChangeListener(null)
         remindersSwitch.isChecked = enabled
-        remindersSwitch.setOnCheckedChangeListener { _, isChecked ->
+        remindersSwitch.setOnCheckedChangeListener(makeRemindersCheckedChangeListener())
+        reminderTimeRow.isEnabled = enabled
+        reminderTimeRow.alpha = if (enabled) 1f else 0.4f
+        testReminderButton.isEnabled = enabled
+        testReminderButton.alpha = if (enabled) 1f else 0.4f
+        val time = prefs.getString(Prefs.REMINDER_TIME, "09:00") ?: "09:00"
+        reminderTimeRow.text = time
+    }
+
+    private fun makeRemindersCheckedChangeListener() =
+        android.widget.CompoundButton.OnCheckedChangeListener { _, isChecked ->
             if (isChecked) {
                 requestNotificationPermissionIfNeeded { granted ->
                     if (granted) setRemindersEnabled(true)
@@ -189,13 +187,6 @@ class SettingsActivity : Activity() {
                 setRemindersEnabled(false)
             }
         }
-        reminderTimeRow.isEnabled = enabled
-        reminderTimeRow.alpha = if (enabled) 1f else 0.4f
-        testReminderButton.isEnabled = enabled
-        testReminderButton.alpha = if (enabled) 1f else 0.4f
-        val time = prefs.getString(Prefs.REMINDER_TIME, "09:00") ?: "09:00"
-        reminderTimeRow.text = time
-    }
 
     private fun requestNotificationPermissionIfNeeded(onResult: (Boolean) -> Unit) {
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU) {

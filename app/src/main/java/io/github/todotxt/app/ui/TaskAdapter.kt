@@ -62,6 +62,8 @@ private class TaskViewHolder(view: View) {
     val completedCheck: CheckBox = view.findViewById(R.id.completedCheck)
     val editButton: TextView     = view.findViewById(R.id.editButton)
     val tagsRow: LinearLayout    = view.findViewById(R.id.tagsRow)
+    /** Last text set on taskText — used to skip redundant Linkify runs. */
+    var lastLinkifiedText: String = ""
 }
 
 class TaskAdapter(
@@ -76,6 +78,16 @@ class TaskAdapter(
     companion object {
         private const val ITEM_TYPE_HEADER = 0
         private const val ITEM_TYPE_TASK   = 1
+
+        // Badge / text colours
+        private const val COLOR_SOMEDAY_TEXT    = 0xFF795548.toInt()  // brown-muted
+        private const val COLOR_NORMAL_TEXT     = 0xFFEEEEEE.toInt()
+        private const val COLOR_CONTEXT_BADGE   = 0xFF1565C0.toInt()  // dark blue
+        private const val COLOR_PROJECT_BADGE   = 0xFF2E7D32.toInt()  // dark green
+        private const val COLOR_RECURRING_BADGE = 0xFF00897B.toInt()  // teal
+        private const val COLOR_SOMEDAY_BADGE   = 0xFFFF6F00.toInt()  // amber
+        private const val COLOR_FROZEN_BADGE    = 0xFF607D8B.toInt()  // blue-grey
+        private const val COLOR_DUE_TODAY       = 0xFFE65100.toInt()  // deep orange
     }
 
     private val inflater = LayoutInflater.from(context)
@@ -128,11 +140,11 @@ class TaskAdapter(
                         holder.taskText.setTypeface(null, Typeface.ITALIC)
                     }
                     task.isSomeday -> {
-                        holder.taskText.setTextColor(0xFF795548.toInt())  // brown-muted
+                        holder.taskText.setTextColor(COLOR_SOMEDAY_TEXT)
                         holder.taskText.setTypeface(null, Typeface.NORMAL)
                     }
                     else -> {
-                        holder.taskText.setTextColor(0xFFEEEEEE.toInt())
+                        holder.taskText.setTextColor(COLOR_NORMAL_TEXT)
                         holder.taskText.setTypeface(null, Typeface.NORMAL)
                     }
                 }
@@ -143,8 +155,12 @@ class TaskAdapter(
                 else
                     holder.taskText.paintFlags and Paint.STRIKE_THRU_TEXT_FLAG.inv()
 
-                // Linkify URLs and phone numbers; pass non-link taps through to row
-                Linkify.addLinks(holder.taskText, Linkify.WEB_URLS or Linkify.PHONE_NUMBERS)
+                // Linkify URLs and phone numbers; skip if text hasn't changed to avoid
+                // redundant work when the ListView recycles a view for the same task.
+                if (holder.lastLinkifiedText != task.displayText) {
+                    Linkify.addLinks(holder.taskText, Linkify.WEB_URLS or Linkify.PHONE_NUMBERS)
+                    holder.lastLinkifiedText = task.displayText
+                }
                 holder.taskText.movementMethod = PassthroughLinkMovementMethod
 
                 // Context (@) and project (+) tag pills — no prefix in the label
@@ -187,7 +203,7 @@ class TaskAdapter(
                     }
                     val color = when {
                         days < 0  -> Color.RED
-                        days == 0L -> 0xFFE65100.toInt()
+                        days == 0L -> COLOR_DUE_TODAY
                         else       -> Color.DKGRAY
                     }
                     holder.dueDateText.text = label
@@ -217,16 +233,16 @@ class TaskAdapter(
     }
 
     private fun makeTagPill(label: String, isProject: Boolean): TextView =
-        makeBadge(label, if (isProject) 0xFF2E7D32.toInt() else 0xFF1565C0.toInt())
+        makeBadge(label, if (isProject) COLOR_PROJECT_BADGE else COLOR_CONTEXT_BADGE)
 
     private fun makeFrozenBadge(): TextView =
-        makeBadge(context.getString(R.string.frozen_badge), 0xFF607D8B.toInt())
+        makeBadge(context.getString(R.string.frozen_badge), COLOR_FROZEN_BADGE)
 
     private fun makeSomedayBadge(): TextView =
-        makeBadge(context.getString(R.string.someday_badge), 0xFFFF6F00.toInt())
+        makeBadge(context.getString(R.string.someday_badge), COLOR_SOMEDAY_BADGE)
 
     private fun makeRecurringBadge(pattern: String): TextView =
-        makeBadge(context.getString(R.string.rec_badge) + " $pattern", 0xFF00897B.toInt())
+        makeBadge(context.getString(R.string.rec_badge) + " $pattern", COLOR_RECURRING_BADGE)
 
     /** Single factory for all badge/pill views — only label and background colour differ. */
     private fun makeBadge(label: String, color: Int): TextView {

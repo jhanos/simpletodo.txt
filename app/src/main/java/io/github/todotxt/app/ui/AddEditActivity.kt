@@ -325,36 +325,25 @@ class AddEditActivity : Activity() {
             raw = "($code) $raw"
         }
 
-        // Append recurrence pattern if set
+        // Build the ordered list of extra tokens to append
+        val parts = mutableListOf<String>()
+
+        // Recurrence — may also auto-set due date
         val recPattern = recurrenceEdit.text.toString().trim()
         if (recPattern.isNotEmpty()) {
-            // Auto-assign due date = today + interval when none was chosen
             if (selectedDueDate == null) {
                 selectedDueDate = Task.addInterval(LocalDate.now().toString(), recPattern)
             }
-            raw = "$raw rec:$recPattern"
+            parts += "rec:$recPattern"
         }
 
-        // Append due date (may have been auto-set above)
-        if (selectedDueDate != null) {
-            raw = "$raw due:$selectedDueDate"
-        }
-        if (selectedContexts.isNotEmpty()) {
-            raw = raw + " " + selectedContexts.sorted().joinToString(" ") { "@$it" }
-        }
-        if (selectedProjects.isNotEmpty()) {
-            raw = raw + " " + selectedProjects.sorted().joinToString(" ") { "+$it" }
-        }
+        selectedDueDate?.let { parts += "due:$it" }
+        if (selectedContexts.isNotEmpty()) parts += selectedContexts.sorted().joinToString(" ") { "@$it" }
+        if (selectedProjects.isNotEmpty()) parts += selectedProjects.sorted().joinToString(" ") { "+$it" }
+        if (frozenSwitch.isChecked)  parts += "status:frozen"
+        if (somedaySwitch.isChecked) parts += "status:someday"
 
-        // Apply frozen state from the switch
-        if (frozenSwitch.isChecked) {
-            raw = "$raw status:frozen"
-        }
-
-        // Apply someday state from the switch
-        if (somedaySwitch.isChecked) {
-            raw = "$raw status:someday"
-        }
+        if (parts.isNotEmpty()) raw = "$raw ${parts.joinToString(" ")}"
 
         setResult(RESULT_OK, Intent().apply {
             putExtra(EXTRA_TASK_TEXT, raw)
@@ -362,6 +351,4 @@ class AddEditActivity : Activity() {
         })
         finish()
     }
-
-    // ── Helpers ───────────────────────────────────────────────────────────
 }

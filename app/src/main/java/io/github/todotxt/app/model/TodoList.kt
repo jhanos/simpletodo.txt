@@ -20,6 +20,15 @@ enum class SortField {
  */
 class TodoList {
 
+    companion object {
+        // Named comparators — defined once, reused in filteredAndGrouped
+        private val BY_PRIORITY = compareBy<Task>({ it.priority.ordinal }, { it.text })
+        private val BY_PROJECT  = compareBy<Task>({ it.projects.firstOrNull() ?: "~" }, { it.text })
+        private val BY_CONTEXT  = compareBy<Task>({ it.contexts.firstOrNull() ?: "~" }, { it.text })
+        private val BY_DUE      = compareBy<Task>({ it.dueDate ?: "9999-99-99" }, { it.text })
+        private val BY_THRESH   = compareBy<Task>({ it.thresholdDate ?: "9999-99-99" }, { it.text })
+    }
+
     private val tasks: MutableList<Task> = mutableListOf()
 
     // ── Derived caches (invalidated on any mutation) ──────────────────────
@@ -155,21 +164,21 @@ class TodoList {
         }
 
         return when (sortField) {
-            SortField.PRIORITY -> groupBy(
-                filtered.sortedWith(compareBy({ it.priority.ordinal }, { it.text }))
-            ) { if (it.priority == Priority.NONE) "No priority" else "(${it.priority.code})" }
-            SortField.PROJECT -> groupBy(
-                filtered.sortedWith(compareBy({ it.projects.firstOrNull() ?: "~" }, { it.text }))
-            ) { it.projects.firstOrNull() ?: "No project" }
-            SortField.CONTEXT -> groupBy(
-                filtered.sortedWith(compareBy({ it.contexts.firstOrNull() ?: "~" }, { it.text }))
-            ) { it.contexts.firstOrNull() ?: "No context" }
-            SortField.DUE_DATE -> groupBy(
-                filtered.sortedWith(compareBy({ it.dueDate ?: "9999-99-99" }, { it.text }))
-            ) { it.dueDate ?: "No due date" }
-            SortField.THRESHOLD_DATE -> groupBy(
-                filtered.sortedWith(compareBy({ it.thresholdDate ?: "9999-99-99" }, { it.text }))
-            ) { it.thresholdDate ?: "No threshold" }
+            SortField.PRIORITY -> groupByKey(filtered.sortedWith(BY_PRIORITY)) {
+                if (it.priority == Priority.NONE) "No priority" else "(${it.priority.code})"
+            }
+            SortField.PROJECT -> groupByKey(filtered.sortedWith(BY_PROJECT)) {
+                it.projects.firstOrNull() ?: "No project"
+            }
+            SortField.CONTEXT -> groupByKey(filtered.sortedWith(BY_CONTEXT)) {
+                it.contexts.firstOrNull() ?: "No context"
+            }
+            SortField.DUE_DATE -> groupByKey(filtered.sortedWith(BY_DUE)) {
+                it.dueDate ?: "No due date"
+            }
+            SortField.THRESHOLD_DATE -> groupByKey(filtered.sortedWith(BY_THRESH)) {
+                it.thresholdDate ?: "No threshold"
+            }
             SortField.NONE -> filtered.map { TaskItem(it) }
         }
     }
@@ -181,7 +190,7 @@ class TodoList {
         _projects = null
     }
 
-    private fun groupBy(tasks: List<Task>, keyOf: (Task) -> String): List<VisibleItem> {
+    private fun groupByKey(tasks: List<Task>, keyOf: (Task) -> String): List<VisibleItem> {
         val result = mutableListOf<VisibleItem>()
         var lastKey: String? = null
         for (task in tasks) {

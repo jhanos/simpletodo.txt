@@ -31,7 +31,6 @@ import io.github.todotxt.app.storage.FileStorage
 import io.github.todotxt.app.storage.Prefs
 import io.github.todotxt.app.storage.ReminderScheduler
 import java.time.LocalDate
-import java.util.concurrent.atomic.AtomicBoolean
 
 enum class ActiveView { INBOX, NEXT, FROZEN, SCHEDULED, SOMEDAY, PROJECT }
 
@@ -112,8 +111,10 @@ class MainActivity : Activity() {
     private lateinit var fab: Button
     private val prefs by lazy { getSharedPreferences(Prefs.NAME, MODE_PRIVATE) }
 
-    private val isSaving  = AtomicBoolean(false)
-    private val isLoading = AtomicBoolean(false)
+    // Both flags are only meaningful on the main thread; background threads only
+    // call set(false) in finally blocks, which is safe without atomic wrappers.
+    private var isSaving  = false
+    private var isLoading = false
     private var isDirty   = false
 
     // Current filter/sort state (used for non-inbox views)
@@ -502,16 +503,17 @@ class MainActivity : Activity() {
     // ── File I/O ──────────────────────────────────────────────────────────
 
     private fun loadTodoFile() {
-        if (isSaving.get()) { DebugLog.d(this, "loadTodoFile: skipped — write in flight"); return }
-        if (!isLoading.compareAndSet(false, true)) { DebugLog.d(this, "loadTodoFile: already in flight"); return }
+        if (isSaving) { DebugLog.d(this, "loadTodoFile: skipped — write in flight"); return }
+        if (isLoading) { DebugLog.d(this, "loadTodoFile: already in flight"); return }
+        isLoading = true
         if (prefs.getString(Prefs.TREE_URI, null) == null) {
             DebugLog.d(this, "loadTodoFile: no tree URI")
-            isLoading.set(false)
+            isLoading = false
             return
         }
         Thread {
             try {
-                if (isSaving.get()) { DebugLog.d(this, "loadTodoFile: skipped on thread"); return@Thread }
+                if (isSaving) { DebugLog.d(this, "loadTodoFile: skipped on thread"); return@Thread }
                 val uri = FileStorage.resolveTodoUri(this, prefs)
                 if (uri == null) {
                     runOnUiThread { Toast.makeText(this, R.string.load_error, Toast.LENGTH_SHORT).show() }
@@ -531,7 +533,7 @@ class MainActivity : Activity() {
                     rebuildDrawer()
                 }
             } finally {
-                isLoading.set(false)
+                isLoading = false
             }
         }.start()
     }
@@ -539,7 +541,7 @@ class MainActivity : Activity() {
     private fun saveTodoFile(postSave: (() -> Unit)? = null) {
         if (prefs.getString(Prefs.TREE_URI, null) == null) return
         val lines = todoList.toLines()
-        isSaving.set(true)
+        isSaving = true
         Thread {
             try {
                 val uri = FileStorage.resolveTodoUri(this, prefs)
@@ -558,7 +560,7 @@ class MainActivity : Activity() {
                     postSave?.invoke()
                 }
             } finally {
-                isSaving.set(false)
+                isSaving = false
             }
         }.start()
     }
@@ -680,7 +682,7 @@ class MainActivity : Activity() {
 
     override fun onStop() {
         super.onStop()
-        if (isDirty) persistTaskCache(todoList.toLines())
+        // markDirty() already persists the cache on every mutation, so nothing to do here.
     }
 
     // ── Preferences ───────────────────────────────────────────────────────
