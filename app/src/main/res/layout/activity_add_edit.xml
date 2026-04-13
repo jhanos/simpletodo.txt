@@ -17,7 +17,8 @@
             android:inputType="textMultiLine|textCapSentences"
             android:minLines="3"
             android:gravity="top"
-            android:background="@android:drawable/edit_text" />
+            android:textColor="#EEEEEE"
+            android:textColorHint="#888888" />
 
         <TextView
             android:layout_width="wrap_content"
@@ -94,7 +95,9 @@
                 android:layout_weight="1"
                 android:hint="@string/context_hint"
                 android:inputType="textNoSuggestions"
-                android:imeOptions="actionDone" />
+                android:imeOptions="actionDone"
+                android:textColor="#EEEEEE"
+                android:textColorHint="#888888" />
 
             <Button
                 android:id="@+id/addContextButton"
@@ -134,7 +137,9 @@
                 android:layout_weight="1"
                 android:hint="@string/project_hint"
                 android:inputType="textNoSuggestions"
-                android:imeOptions="actionDone" />
+                android:imeOptions="actionDone"
+                android:textColor="#EEEEEE"
+                android:textColorHint="#888888" />
 
             <Button
                 android:id="@+id/addProjectButton"
@@ -205,7 +210,9 @@
             android:hint="@string/recurrence_hint"
             android:inputType="textNoSuggestions"
             android:imeOptions="actionDone"
-            android:maxLines="1" />
+            android:maxLines="1"
+            android:textColor="#EEEEEE"
+            android:textColorHint="#888888" />
 
         <LinearLayout
             android:layout_width="match_parent"
