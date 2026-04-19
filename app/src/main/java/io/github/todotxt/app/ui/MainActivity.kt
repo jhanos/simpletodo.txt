@@ -487,8 +487,8 @@ class MainActivity : Activity() {
 
     private fun startupSync() {
         val lastSync = prefs.getString(Prefs.LAST_SYNC_DATE, null)
-        if (lastSync != Prefs.todayString()) {
-            // First open of the day — flush cache to SAF then pull
+        if (lastSync != Prefs.todayString() || isDirty) {
+            // First open of the day, or unsaved changes — flush to SAF then pull
             saveTodoFile(postSave = { loadTodoFile() })
         } else {
             loadTodoFile()
