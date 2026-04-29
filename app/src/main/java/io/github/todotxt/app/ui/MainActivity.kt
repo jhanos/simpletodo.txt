@@ -682,7 +682,7 @@ class MainActivity : Activity() {
 
     override fun onStop() {
         super.onStop()
-        // markDirty() already persists the cache on every mutation, so nothing to do here.
+        if (isDirty) saveTodoFile()
     }
 
     // ── Preferences ───────────────────────────────────────────────────────

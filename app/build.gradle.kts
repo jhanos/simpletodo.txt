@@ -6,6 +6,7 @@ plugins {
 android {
     namespace = "io.github.todotxt.app"
     compileSdk = 34
+    buildToolsVersion = "35.0.1"
 
     defaultConfig {
         applicationId = "io.github.todotxt.app"
@@ -19,9 +20,9 @@ android {
 
     signingConfigs {
         create("debugKey") {
-            storeFile = file("${System.getProperty("user.home")}/.android/debug.keystore")
+            storeFile = file("${System.getProperty("user.home")}/.android/jhanos-android.keystore")
             storePassword = "android"
-            keyAlias = "androiddebugkey"
+            keyAlias = "my-key-alias"
             keyPassword = "android"
         }
     }
