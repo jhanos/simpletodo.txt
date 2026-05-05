@@ -120,6 +120,7 @@ class MainActivity : Activity() {
     // Current filter/sort state (used for non-inbox views)
     private var sortField      = SortField.PRIORITY
     private var showFuture     = false
+    private var showCompleted  = false
     private var filterContexts = emptySet<String>()
     private var filterProjects = emptySet<String>()
     private var filterText     = ""
@@ -203,12 +204,24 @@ class MainActivity : Activity() {
         return true
     }
 
+    override fun onPrepareOptionsMenu(menu: Menu): Boolean {
+        menu.findItem(R.id.action_show_completed)?.icon?.alpha = if (showCompleted) 255 else 80
+        return super.onPrepareOptionsMenu(menu)
+    }
+
     override fun onOptionsItemSelected(item: MenuItem): Boolean {
         return when (item.itemId) {
-            android.R.id.home    -> { toggleDrawer(); true }
-            R.id.action_sync     -> { syncNow(); true }
-            R.id.action_filter   -> { openFilter(); true }
-            R.id.action_settings -> { openSettings(); true }
+            android.R.id.home         -> { toggleDrawer(); true }
+            R.id.action_sync          -> { syncNow(); true }
+            R.id.action_filter        -> { openFilter(); true }
+            R.id.action_show_completed -> {
+                showCompleted = !showCompleted
+                savePrefs()
+                invalidateOptionsMenu()
+                refreshList()
+                true
+            }
+            R.id.action_settings      -> { openSettings(); true }
             else -> super.onOptionsItemSelected(item)
         }
     }
@@ -614,7 +627,8 @@ class MainActivity : Activity() {
                         is HeaderItem -> true  // prune orphans in the next pass
                         is TaskItem   -> {
                             val t = item.task
-                            !t.completed && !t.isFrozen && !t.isSomeday &&
+                            !t.isFrozen && !t.isSomeday &&
+                                (!t.completed || showCompleted) &&
                                 (t.dueDate == null || t.dueDate!! <= sevenDaysFromNow)
                         }
                     }
@@ -691,6 +705,7 @@ class MainActivity : Activity() {
         val p = prefs
         sortField      = SortField.valueOf(p.getString(Prefs.SORT_FIELD, SortField.PRIORITY.name)!!)
         showFuture     = p.getBoolean(Prefs.SHOW_FUTURE, false)
+        showCompleted  = p.getBoolean(Prefs.SHOW_COMPLETED, false)
         filterContexts = p.getStringSet(Prefs.FILTER_CONTEXTS, emptySet())!!
         filterProjects = p.getStringSet(Prefs.FILTER_PROJECTS, emptySet())!!
         filterText     = p.getString(Prefs.FILTER_TEXT, "") ?: ""
@@ -721,6 +736,7 @@ class MainActivity : Activity() {
         prefs.edit().apply {
             putString(Prefs.SORT_FIELD,       sortField.name)
             putBoolean(Prefs.SHOW_FUTURE,     showFuture)
+            putBoolean(Prefs.SHOW_COMPLETED,  showCompleted)
             putStringSet(Prefs.FILTER_CONTEXTS, filterContexts)
             putStringSet(Prefs.FILTER_PROJECTS, filterProjects)
             putString(Prefs.FILTER_TEXT,      filterText)
