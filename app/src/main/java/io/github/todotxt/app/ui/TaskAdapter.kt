@@ -62,8 +62,7 @@ private class TaskViewHolder(view: View) {
     val completedCheck: CheckBox = view.findViewById(R.id.completedCheck)
     val editButton: TextView     = view.findViewById(R.id.editButton)
     val tagsRow: LinearLayout    = view.findViewById(R.id.tagsRow)
-    /** Last text set on taskText — used to skip redundant Linkify runs. */
-    var lastLinkifiedText: String = ""
+
 }
 
 class TaskAdapter(
@@ -156,12 +155,8 @@ class TaskAdapter(
                 else
                     holder.taskText.paintFlags and Paint.STRIKE_THRU_TEXT_FLAG.inv()
 
-                // Linkify URLs and phone numbers; skip if text hasn't changed to avoid
-                // redundant work when the ListView recycles a view for the same task.
-                if (holder.lastLinkifiedText != task.displayText) {
-                    Linkify.addLinks(holder.taskText, Linkify.WEB_URLS or Linkify.PHONE_NUMBERS)
-                    holder.lastLinkifiedText = task.displayText
-                }
+                // Linkify URLs and phone numbers
+                Linkify.addLinks(holder.taskText, Linkify.WEB_URLS or Linkify.PHONE_NUMBERS)
                 holder.taskText.movementMethod = PassthroughLinkMovementMethod
 
                 // Context (@) and project (+) tag pills — no prefix in the label
