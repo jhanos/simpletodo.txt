@@ -9,6 +9,7 @@
         android:layout_height="wrap_content"
         android:orientation="vertical">
 
+        <!-- Task text -->
         <EditText
             android:id="@+id/taskEditText"
             android:layout_width="match_parent"
@@ -20,33 +21,41 @@
             android:textColor="#EEEEEE"
             android:textColorHint="#888888" />
 
-        <TextView
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:text="@string/priority_label"
-            android:textStyle="bold"
-            android:paddingTop="16dp"
-            android:paddingBottom="4dp" />
-
-        <Spinner
-            android:id="@+id/prioritySpinner"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content" />
-
-        <TextView
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:text="@string/due_date_label"
-            android:textStyle="bold"
-            android:paddingTop="16dp"
-            android:paddingBottom="4dp" />
-
-        <!-- Tappable row: shows selected date or "None" -->
+        <!-- A: Priority inline -->
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:orientation="horizontal"
-            android:gravity="center_vertical">
+            android:gravity="center_vertical"
+            android:paddingTop="8dp">
+
+            <TextView
+                android:layout_width="100dp"
+                android:layout_height="wrap_content"
+                android:text="@string/priority_label"
+                android:textStyle="bold" />
+
+            <Spinner
+                android:id="@+id/prioritySpinner"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1" />
+
+        </LinearLayout>
+
+        <!-- A: Due date inline -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:gravity="center_vertical"
+            android:paddingTop="8dp">
+
+            <TextView
+                android:layout_width="100dp"
+                android:layout_height="wrap_content"
+                android:text="@string/due_date_label"
+                android:textStyle="bold" />
 
             <TextView
                 android:id="@+id/dueDateValue"
@@ -55,6 +64,7 @@
                 android:layout_weight="1"
                 android:text="@string/due_date_none"
                 android:textColor="@android:color/holo_blue_dark"
+                android:textSize="18sp"
                 android:padding="8dp" />
 
             <Button
@@ -66,97 +76,155 @@
 
         </LinearLayout>
 
-        <TextView
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:text="@string/contexts_label"
-            android:textStyle="bold"
-            android:paddingTop="16dp"
-            android:paddingBottom="4dp" />
-
-        <!-- Context chips injected programmatically -->
+        <!-- Option 3: Contexts collapsible header with summary -->
         <LinearLayout
-            android:id="@+id/contextsChipGroup"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:orientation="vertical" />
-
-        <!-- Manual context entry -->
-        <LinearLayout
+            android:id="@+id/contextsHeader"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:orientation="horizontal"
-            android:paddingTop="4dp">
+            android:gravity="center_vertical"
+            android:paddingTop="8dp"
+            android:paddingBottom="4dp"
+            android:background="?android:attr/selectableItemBackground">
 
-            <EditText
-                android:id="@+id/contextInput"
+            <TextView
+                android:id="@+id/contextsSummary"
                 android:layout_width="0dp"
                 android:layout_height="wrap_content"
                 android:layout_weight="1"
-                android:hint="@string/context_hint"
-                android:inputType="textNoSuggestions"
-                android:imeOptions="actionDone"
-                android:textColor="#EEEEEE"
-                android:textColorHint="#888888" />
+                android:text="@string/contexts_label"
+                android:textStyle="bold" />
 
-            <Button
-                android:id="@+id/addContextButton"
+            <TextView
+                android:id="@+id/contextsArrow"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:text="@string/add_chip"
-                android:layout_marginStart="8dp" />
+                android:text="▶"
+                android:textSize="12sp"
+                android:paddingStart="8dp" />
 
         </LinearLayout>
 
-        <TextView
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:text="@string/projects_label"
-            android:textStyle="bold"
-            android:paddingTop="16dp"
-            android:paddingBottom="4dp" />
-
-        <!-- Project chips injected programmatically -->
+        <!-- Contexts collapsible body -->
         <LinearLayout
-            android:id="@+id/projectsChipGroup"
+            android:id="@+id/contextsBody"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:orientation="vertical" />
+            android:orientation="vertical"
+            android:visibility="gone">
 
-        <!-- Manual project entry -->
+            <LinearLayout
+                android:id="@+id/contextsChipGroup"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical" />
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal"
+                android:paddingTop="4dp">
+
+                <EditText
+                    android:id="@+id/contextInput"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:hint="@string/context_hint"
+                    android:inputType="textNoSuggestions"
+                    android:imeOptions="actionDone"
+                    android:textColor="#EEEEEE"
+                    android:textColorHint="#888888" />
+
+                <Button
+                    android:id="@+id/addContextButton"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="@string/add_chip"
+                    android:layout_marginStart="8dp" />
+
+            </LinearLayout>
+
+        </LinearLayout>
+
+        <!-- Option 3: Projects collapsible header with summary -->
         <LinearLayout
+            android:id="@+id/projectsHeader"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:orientation="horizontal"
-            android:paddingTop="4dp">
+            android:gravity="center_vertical"
+            android:paddingTop="8dp"
+            android:paddingBottom="4dp"
+            android:background="?android:attr/selectableItemBackground">
 
-            <EditText
-                android:id="@+id/projectInput"
+            <TextView
+                android:id="@+id/projectsSummary"
                 android:layout_width="0dp"
                 android:layout_height="wrap_content"
                 android:layout_weight="1"
-                android:hint="@string/project_hint"
-                android:inputType="textNoSuggestions"
-                android:imeOptions="actionDone"
-                android:textColor="#EEEEEE"
-                android:textColorHint="#888888" />
+                android:text="@string/projects_label"
+                android:textStyle="bold" />
 
-            <Button
-                android:id="@+id/addProjectButton"
+            <TextView
+                android:id="@+id/projectsArrow"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:text="@string/add_chip"
-                android:layout_marginStart="8dp" />
+                android:text="▶"
+                android:textSize="12sp"
+                android:paddingStart="8dp" />
 
         </LinearLayout>
 
-        <!-- Frozen toggle -->
+        <!-- Projects collapsible body -->
+        <LinearLayout
+            android:id="@+id/projectsBody"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:visibility="gone">
+
+            <LinearLayout
+                android:id="@+id/projectsChipGroup"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical" />
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal"
+                android:paddingTop="4dp">
+
+                <EditText
+                    android:id="@+id/projectInput"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:hint="@string/project_hint"
+                    android:inputType="textNoSuggestions"
+                    android:imeOptions="actionDone"
+                    android:textColor="#EEEEEE"
+                    android:textColorHint="#888888" />
+
+                <Button
+                    android:id="@+id/addProjectButton"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="@string/add_chip"
+                    android:layout_marginStart="8dp" />
+
+            </LinearLayout>
+
+        </LinearLayout>
+
+        <!-- C: Frozen + Someday on one row -->
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:orientation="horizontal"
             android:gravity="center_vertical"
-            android:paddingTop="16dp">
+            android:paddingTop="8dp">
 
             <TextView
                 android:layout_width="0dp"
@@ -170,22 +238,13 @@
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content" />
 
-        </LinearLayout>
-
-        <!-- Someday toggle -->
-        <LinearLayout
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:orientation="horizontal"
-            android:gravity="center_vertical"
-            android:paddingTop="8dp">
-
             <TextView
                 android:layout_width="0dp"
                 android:layout_height="wrap_content"
                 android:layout_weight="1"
                 android:text="@string/someday_label"
-                android:textStyle="bold" />
+                android:textStyle="bold"
+                android:paddingStart="16dp" />
 
             <Switch
                 android:id="@+id/somedaySwitch"
@@ -194,31 +253,49 @@
 
         </LinearLayout>
 
-        <!-- Recurrence -->
-        <TextView
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:text="@string/recurrence_label"
-            android:textStyle="bold"
-            android:paddingTop="16dp"
-            android:paddingBottom="4dp" />
-
-        <EditText
-            android:id="@+id/recurrenceEdit"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:hint="@string/recurrence_hint"
-            android:inputType="textNoSuggestions"
-            android:imeOptions="actionDone"
-            android:maxLines="1"
-            android:textColor="#EEEEEE"
-            android:textColorHint="#888888" />
-
+        <!-- A: Recurrence inline -->
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:orientation="horizontal"
-            android:paddingTop="16dp">
+            android:gravity="center_vertical"
+            android:paddingTop="8dp">
+
+            <TextView
+                android:layout_width="100dp"
+                android:layout_height="wrap_content"
+                android:text="@string/recurrence_label"
+                android:textStyle="bold" />
+
+            <EditText
+                android:id="@+id/recurrenceEdit"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:hint="@string/recurrence_hint"
+                android:inputType="textNoSuggestions"
+                android:imeOptions="actionDone"
+                android:maxLines="1"
+                android:textColor="#EEEEEE"
+                android:textColorHint="#888888" />
+
+        </LinearLayout>
+
+        <!-- D: Note + Save + Cancel on one row -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:paddingTop="8dp">
+
+            <Button
+                android:id="@+id/noteButton"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:text="@string/note_add" />
+
+            <Space android:layout_width="8dp" android:layout_height="0dp" />
 
             <Button
                 android:id="@+id/saveButton"

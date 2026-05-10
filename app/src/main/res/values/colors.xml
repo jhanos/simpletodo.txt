@@ -20,4 +20,7 @@
     <color name="priorityBadge">#FF888888</color>
     <color name="contextBadge">#FF1565C0</color>
     <color name="projectBadge">#FF2E7D32</color>
+
+    <!-- Launcher icon background -->
+    <color name="ic_launcher_background">#FFA726</color>
 </resources>

@@ -50,6 +50,12 @@
             android:label="@string/nav_inbox"
             android:windowSoftInputMode="adjustResize" />
 
+        <activity
+            android:name=".ui.NoteActivity"
+            android:exported="false"
+            android:label="@string/add_note"
+            android:windowSoftInputMode="adjustResize" />
+
         <receiver
             android:name=".ui.ReminderReceiver"
             android:exported="true">

@@ -28,6 +28,7 @@ import io.github.todotxt.app.model.TodoList
 import io.github.todotxt.app.model.VisibleItem
 import io.github.todotxt.app.storage.DebugLog
 import io.github.todotxt.app.storage.FileStorage
+import io.github.todotxt.app.storage.NoteStorage
 import io.github.todotxt.app.storage.Prefs
 import io.github.todotxt.app.storage.ReminderScheduler
 import java.time.LocalDate
@@ -423,6 +424,7 @@ class MainActivity : Activity() {
         AlertDialog.Builder(this)
             .setMessage(R.string.delete_confirm)
             .setPositiveButton(R.string.yes) { _, _ ->
+                item.task.noteId?.let { NoteStorage.delete(this, it) }
                 todoList.remove(item.task)
                 markDirty()
                 refreshList()

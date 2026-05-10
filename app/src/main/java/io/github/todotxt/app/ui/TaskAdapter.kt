@@ -88,6 +88,7 @@ class TaskAdapter(
         private const val COLOR_SOMEDAY_BADGE   = 0xFFFF6F00.toInt()  // amber
         private const val COLOR_FROZEN_BADGE    = 0xFF607D8B.toInt()  // blue-grey
         private const val COLOR_DUE_TODAY       = 0xFFE65100.toInt()  // deep orange
+        private const val COLOR_NOTE_BADGE      = 0xFF6A1B9A.toInt()  // purple
     }
 
     private val inflater = LayoutInflater.from(context)
@@ -166,7 +167,7 @@ class TaskAdapter(
                 // Context (@) and project (+) tag pills — no prefix in the label
                 val tags = task.contexts.map { it to false } +
                            task.projects.map { it to true }
-                val showTags = tags.isNotEmpty() || task.isFrozen || task.isSomeday || task.recurrencePattern != null
+                val showTags = tags.isNotEmpty() || task.isFrozen || task.isSomeday || task.recurrencePattern != null || task.noteId != null
                 if (!showTags) {
                     holder.tagsRow.visibility = View.GONE
                 } else {
@@ -174,6 +175,7 @@ class TaskAdapter(
                     if (task.isFrozen) holder.tagsRow.addView(makeFrozenBadge())
                     if (task.isSomeday) holder.tagsRow.addView(makeSomedayBadge())
                     task.recurrencePattern?.let { holder.tagsRow.addView(makeRecurringBadge(it)) }
+                    if (task.noteId != null) holder.tagsRow.addView(makeNoteBadge())
                     tags.forEach { (label, isProject) ->
                         holder.tagsRow.addView(makeTagPill(label, isProject))
                     }
@@ -243,6 +245,9 @@ class TaskAdapter(
 
     private fun makeRecurringBadge(pattern: String): TextView =
         makeBadge(context.getString(R.string.rec_badge) + " $pattern", COLOR_RECURRING_BADGE)
+
+    private fun makeNoteBadge(): TextView =
+        makeBadge(context.getString(R.string.note_badge), COLOR_NOTE_BADGE)
 
     /** Single factory for all badge/pill views — only label and background colour differ. */
     private fun makeBadge(label: String, color: Int): TextView {

@@ -53,10 +53,11 @@ class Task(text: String) {
     val text: String
         get() = _text ?: _tokens.joinToString(" ") { it.text }.also { _text = it }
 
-    /** Like [text] but omits @context, +project and due:date tokens (shown separately in the UI). */
+    /** Like [text] but omits @context, +project, due:date, note: tokens (shown separately in the UI). */
     val displayText: String
         get() = _displayText ?: _tokens
-            .filter { it !is ContextToken && it !is ProjectToken && it !is DueDateToken && it !is StatusToken && it !is RecurrenceToken }
+            .filter { it !is ContextToken && it !is ProjectToken && it !is DueDateToken && it !is StatusToken && it !is RecurrenceToken
+                    && !(it is ExtToken && it.key == "note") }
             .joinToString(" ") { it.text }
             .replace(Regex("  +"), " ")
             .trim()
@@ -144,6 +145,30 @@ class Task(text: String) {
     val projects: List<String>
         get() = _projects ?: _tokens.filterIsInstance<ProjectToken>().map { it.value }
             .also { _projects = it }
+
+    /** The note ID stored as a `note:<id>` extension token, or null if no note is attached. */
+    val noteId: String?
+        get() = (_tokens.firstOrNull { it is ExtToken && it.key == "note" } as? ExtToken)?.valueStr
+
+    /** Returns a new Task with a `note:<id>` token appended (replaces any existing one). */
+    fun withNoteId(id: String): Task {
+        val newText = text
+            .split(' ')
+            .filter { word -> !word.startsWith("note:", ignoreCase = true) }
+            .joinToString(" ")
+            .trim() + " note:$id"
+        return Task(newText.trim())
+    }
+
+    /** Returns a new Task with any `note:` token removed. */
+    fun withoutNoteId(): Task {
+        val newText = text
+            .split(' ')
+            .filter { word -> !word.startsWith("note:", ignoreCase = true) }
+            .joinToString(" ")
+            .trim()
+        return Task(newText)
+    }
 
     // ── Mutations ─────────────────────────────────────────────────────────
 

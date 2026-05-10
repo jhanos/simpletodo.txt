@@ -99,4 +99,19 @@
     <string name="recurrence_label">Recurrence</string>
     <string name="recurrence_hint">e.g. 1w, +2m, 3d</string>
     <string name="rec_badge">↻</string>
+
+    <!-- Notes -->
+    <string name="note_label">Note</string>
+    <string name="note_hint">Write a note…</string>
+    <string name="note_images_label">Images</string>
+    <string name="note_add_image">Add image</string>
+    <string name="note_add">Add note</string>
+    <string name="note_edit">Edit note</string>
+    <string name="note_edit_with_images">Edit note (%d images)</string>
+    <string name="note_delete">Delete note</string>
+    <string name="note_delete_confirm">Delete this note?</string>
+    <string name="note_remove_image_confirm">Remove this image?</string>
+    <string name="note_badge">note</string>
+    <string name="add_note">Add note</string>
+    <string name="edit_note">Edit note</string>
 </resources>

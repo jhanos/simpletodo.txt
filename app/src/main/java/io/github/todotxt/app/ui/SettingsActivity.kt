@@ -21,6 +21,7 @@ import io.github.todotxt.app.R
 import io.github.todotxt.app.model.Task
 import io.github.todotxt.app.storage.DebugLog
 import io.github.todotxt.app.storage.FileStorage
+import io.github.todotxt.app.storage.NoteStorage
 import io.github.todotxt.app.storage.Prefs
 import io.github.todotxt.app.storage.ReminderScheduler
 
@@ -252,6 +253,9 @@ class SettingsActivity : Activity() {
                     return@Thread
                 }
                 FileStorage.appendLines(this, doneUri, completedLines)
+
+                // Release note data for archived tasks
+                completed.forEach { task -> task.noteId?.let { NoteStorage.delete(this, it) } }
 
                 val todoUri: Uri? = prefs.getString(Prefs.TODO_URI, null)
                     ?.let { Uri.parse(it) }

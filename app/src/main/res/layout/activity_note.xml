@@ -9,41 +9,58 @@
         android:layout_height="wrap_content"
         android:orientation="vertical">
 
+        <!-- Note text -->
         <TextView
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:text="Title"
+            android:text="@string/note_label"
             android:textStyle="bold"
             android:paddingBottom="4dp" />
 
         <EditText
-            android:id="@+id/inboxTitleEdit"
+            android:id="@+id/noteEditText"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:hint="@string/inbox_title_hint"
-            android:inputType="textCapSentences"
-            android:textColor="#EEEEEE"
-            android:textColorHint="#888888" />
-
-        <TextView
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:text="Description"
-            android:textStyle="bold"
-            android:paddingTop="16dp"
-            android:paddingBottom="4dp" />
-
-        <EditText
-            android:id="@+id/inboxDescEdit"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:hint="@string/inbox_desc_hint"
+            android:hint="@string/note_hint"
             android:inputType="textMultiLine|textCapSentences"
-            android:minLines="4"
+            android:minLines="5"
             android:gravity="top"
             android:textColor="#EEEEEE"
             android:textColorHint="#888888" />
 
+        <!-- Images section -->
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="@string/note_images_label"
+            android:textStyle="bold"
+            android:paddingTop="16dp"
+            android:paddingBottom="4dp" />
+
+        <!-- Horizontal scrollable thumbnail strip -->
+        <HorizontalScrollView
+            android:id="@+id/imagesScrollView"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:visibility="gone">
+
+            <LinearLayout
+                android:id="@+id/imagesRow"
+                android:layout_width="wrap_content"
+                android:layout_height="100dp"
+                android:orientation="horizontal"
+                android:paddingBottom="8dp" />
+
+        </HorizontalScrollView>
+
+        <Button
+            android:id="@+id/addImageButton"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="@string/note_add_image"
+            android:layout_marginTop="4dp" />
+
+        <!-- Action buttons -->
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
@@ -51,7 +68,7 @@
             android:paddingTop="16dp">
 
             <Button
-                android:id="@+id/inboxSaveButton"
+                android:id="@+id/noteSaveButton"
                 android:layout_width="0dp"
                 android:layout_height="wrap_content"
                 android:layout_weight="1"
@@ -60,7 +77,7 @@
             <Space android:layout_width="8dp" android:layout_height="0dp" />
 
             <Button
-                android:id="@+id/inboxCancelButton"
+                android:id="@+id/noteCancelButton"
                 android:layout_width="0dp"
                 android:layout_height="wrap_content"
                 android:layout_weight="1"
@@ -69,11 +86,11 @@
         </LinearLayout>
 
         <Button
-            android:id="@+id/inboxDeleteButton"
+            android:id="@+id/noteDeleteButton"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_marginTop="8dp"
-            android:text="@string/delete"
+            android:text="@string/note_delete"
             android:visibility="gone" />
 
     </LinearLayout>

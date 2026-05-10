@@ -20,6 +20,7 @@ import android.widget.TextView
 import io.github.todotxt.app.R
 import io.github.todotxt.app.model.Priority
 import io.github.todotxt.app.model.Task
+import io.github.todotxt.app.storage.NoteStorage
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
 import java.util.Calendar
@@ -43,6 +44,8 @@ class AddEditActivity : Activity() {
         private const val CHIP_CORNER_RADIUS = 32f
 
         private val DATE_FMT = DateTimeFormatter.ofPattern("yyyy-MM-dd")
+
+        private const val REQ_NOTE = 2001
     }
 
     private lateinit var taskEditText: EditText
@@ -54,11 +57,23 @@ class AddEditActivity : Activity() {
     private lateinit var frozenSwitch: Switch
     private lateinit var somedaySwitch: Switch
     private lateinit var recurrenceEdit: EditText
+    private lateinit var noteButton: Button
+
+    // Collapsible section views
+    private lateinit var contextsHeader: LinearLayout
+    private lateinit var contextsBody: LinearLayout
+    private lateinit var contextsSummary: TextView
+    private lateinit var contextsArrow: TextView
+    private lateinit var projectsHeader: LinearLayout
+    private lateinit var projectsBody: LinearLayout
+    private lateinit var projectsSummary: TextView
+    private lateinit var projectsArrow: TextView
 
     // Track selected values
     private val selectedContexts = mutableSetOf<String>()
     private val selectedProjects  = mutableSetOf<String>()
     private var selectedDueDate: String? = null   // "YYYY-MM-DD" or null
+    private var currentNoteId: String?  = null    // note:id token value, or null
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -73,6 +88,15 @@ class AddEditActivity : Activity() {
         frozenSwitch      = findViewById(R.id.frozenSwitch)
         somedaySwitch     = findViewById(R.id.somedaySwitch)
         recurrenceEdit    = findViewById(R.id.recurrenceEdit)
+        noteButton        = findViewById(R.id.noteButton)
+        contextsHeader    = findViewById(R.id.contextsHeader)
+        contextsBody      = findViewById(R.id.contextsBody)
+        contextsSummary   = findViewById(R.id.contextsSummary)
+        contextsArrow     = findViewById(R.id.contextsArrow)
+        projectsHeader    = findViewById(R.id.projectsHeader)
+        projectsBody      = findViewById(R.id.projectsBody)
+        projectsSummary   = findViewById(R.id.projectsSummary)
+        projectsArrow     = findViewById(R.id.projectsArrow)
 
         // Priority spinner
         val priorities = mutableListOf(getString(R.string.none))
@@ -90,6 +114,7 @@ class AddEditActivity : Activity() {
         selectedContexts.addAll(existingTask?.contexts ?: emptyList())
         selectedProjects.addAll(existingTask?.projects ?: emptyList())
         selectedDueDate = existingTask?.dueDate
+        currentNoteId   = existingTask?.noteId
 
         // Build context list: defaults + any from file, deduped, sorted
         val allContextsFromFile = intent.getStringArrayListExtra(EXTRA_ALL_CONTEXTS) ?: arrayListOf()
@@ -103,8 +128,22 @@ class AddEditActivity : Activity() {
             .distinct()
             .sorted()
 
-        buildChips(contextsGroup, allContexts, selectedContexts)
-        buildChips(projectsGroup, allProjects, selectedProjects)
+        buildChips(contextsGroup, allContexts, selectedContexts) {
+            refreshSectionSummary(contextsSummary, getString(R.string.contexts_label), selectedContexts)
+        }
+        buildChips(projectsGroup, allProjects, selectedProjects) {
+            refreshSectionSummary(projectsSummary, getString(R.string.projects_label), selectedProjects)
+        }
+
+        // Collapsible contexts — auto-expand if task has contexts
+        refreshSectionSummary(contextsSummary, getString(R.string.contexts_label), selectedContexts)
+        if (selectedContexts.isNotEmpty()) toggleSection(contextsBody, contextsArrow)
+        contextsHeader.setOnClickListener { toggleSection(contextsBody, contextsArrow) }
+
+        // Collapsible projects — auto-expand if task has projects
+        refreshSectionSummary(projectsSummary, getString(R.string.projects_label), selectedProjects)
+        if (selectedProjects.isNotEmpty()) toggleSection(projectsBody, projectsArrow)
+        projectsHeader.setOnClickListener { toggleSection(projectsBody, projectsArrow) }
 
         // Due date row
         refreshDueDateUi()
@@ -121,7 +160,10 @@ class AddEditActivity : Activity() {
             val value = contextInput.text.toString().trim().lowercase()
             if (value.isNotEmpty()) {
                 selectedContexts.add(value)
-                buildChips(contextsGroup, (allContexts + selectedContexts).distinct().sorted(), selectedContexts)
+                buildChips(contextsGroup, (allContexts + selectedContexts).distinct().sorted(), selectedContexts) {
+                    refreshSectionSummary(contextsSummary, getString(R.string.contexts_label), selectedContexts)
+                }
+                refreshSectionSummary(contextsSummary, getString(R.string.contexts_label), selectedContexts)
                 contextInput.setText("")
             }
         }
@@ -140,7 +182,10 @@ class AddEditActivity : Activity() {
             val value = projectInput.text.toString().trim().lowercase()
             if (value.isNotEmpty()) {
                 selectedProjects.add(value)
-                buildChips(projectsGroup, (allProjects + selectedProjects).distinct().sorted(), selectedProjects)
+                buildChips(projectsGroup, (allProjects + selectedProjects).distinct().sorted(), selectedProjects) {
+                    refreshSectionSummary(projectsSummary, getString(R.string.projects_label), selectedProjects)
+                }
+                refreshSectionSummary(projectsSummary, getString(R.string.projects_label), selectedProjects)
                 projectInput.setText("")
             }
         }
@@ -194,6 +239,58 @@ class AddEditActivity : Activity() {
                     .show()
             }
         }
+
+        refreshNoteButton()
+        noteButton.setOnClickListener {
+            startActivityForResult(
+                Intent(this, NoteActivity::class.java).apply {
+                    currentNoteId?.let { putExtra(NoteActivity.EXTRA_NOTE_ID, it) }
+                },
+                REQ_NOTE
+            )
+        }
+    }
+
+    override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
+        super.onActivityResult(requestCode, resultCode, data)
+        if (requestCode == REQ_NOTE && resultCode == RESULT_OK && data != null) {
+            currentNoteId = if (data.getBooleanExtra(NoteActivity.EXTRA_DELETED, false)) {
+                null
+            } else {
+                data.getStringExtra(NoteActivity.EXTRA_NOTE_ID)
+            }
+            refreshNoteButton()
+        }
+    }
+
+    private fun refreshNoteButton() {
+        if (currentNoteId != null) {
+            val note = NoteStorage.load(this, currentNoteId!!)
+            val imgCount = note?.images?.size ?: 0
+            noteButton.text = if (imgCount > 0)
+                getString(R.string.note_edit_with_images, imgCount)
+            else
+                getString(R.string.note_edit)
+        } else {
+            noteButton.text = getString(R.string.note_add)
+        }
+    }
+
+    // ── Collapsible section helpers ───────────────────────────────────────
+
+    private fun toggleSection(body: LinearLayout, arrow: TextView) {
+        if (body.visibility == View.GONE) {
+            body.visibility = View.VISIBLE
+            arrow.text = "▼"
+        } else {
+            body.visibility = View.GONE
+            arrow.text = "▶"
+        }
+    }
+
+    private fun refreshSectionSummary(summary: TextView, label: String, selected: Set<String>) {
+        summary.text = if (selected.isEmpty()) label
+        else "$label: ${selected.sorted().joinToString(", ")}"
     }
 
     // ── Due date helpers ──────────────────────────────────────────────────
@@ -233,7 +330,8 @@ class AddEditActivity : Activity() {
     private fun buildChips(
         group: LinearLayout,
         values: List<String>,
-        selected: MutableSet<String>
+        selected: MutableSet<String>,
+        onToggle: (() -> Unit) = {}
     ) {
         group.removeAllViews()
         var row = newRow()
@@ -242,6 +340,7 @@ class AddEditActivity : Activity() {
         values.forEach { value ->
             val chip = makeChip(value, value in selected) { isNowSelected ->
                 if (isNowSelected) selected.add(value) else selected.remove(value)
+                onToggle()
             }
             if (row.childCount >= 4) {
                 row = newRow()
@@ -305,14 +404,15 @@ class AddEditActivity : Activity() {
         var raw = taskEditText.text.toString().trim()
         if (raw.isEmpty()) { finish(); return }
 
-        // Strip existing @context, +project, due:, t:, rec: and status: tokens from raw text
+        // Strip existing @context, +project, due:, t:, rec:, status: and note: tokens from raw text
         raw = raw.split(' ')
             .filter { word ->
                 !word.startsWith('@') && !word.startsWith('+') &&
                 !word.startsWith("due:", ignoreCase = true) &&
                 !word.startsWith("t:", ignoreCase = true) &&
                 !word.startsWith("rec:", ignoreCase = true) &&
-                !word.startsWith("status:", ignoreCase = true)
+                !word.startsWith("status:", ignoreCase = true) &&
+                !word.startsWith("note:", ignoreCase = true)
             }
             .joinToString(" ")
             .trim()
@@ -342,6 +442,7 @@ class AddEditActivity : Activity() {
         if (selectedProjects.isNotEmpty()) parts += selectedProjects.sorted().joinToString(" ") { "+$it" }
         if (frozenSwitch.isChecked)  parts += "status:frozen"
         if (somedaySwitch.isChecked) parts += "status:someday"
+        currentNoteId?.let { parts += "note:$it" }
 
         if (parts.isNotEmpty()) raw = "$raw ${parts.joinToString(" ")}"
 
