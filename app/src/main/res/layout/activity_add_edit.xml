@@ -16,6 +16,7 @@
             android:layout_height="wrap_content"
             android:hint="@string/task_hint"
             android:inputType="textMultiLine|textCapSentences"
+            android:imeOptions="actionNone"
             android:minLines="3"
             android:gravity="top"
             android:textColor="#EEEEEE"

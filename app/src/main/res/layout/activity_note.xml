@@ -53,14 +53,7 @@
 
         </HorizontalScrollView>
 
-        <Button
-            android:id="@+id/addImageButton"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:text="@string/note_add_image"
-            android:layout_marginTop="4dp" />
-
-        <!-- Action buttons -->
+        <!-- Action buttons row 1: Save (always) + Delete (edit mode only) -->
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
@@ -77,6 +70,32 @@
             <Space android:layout_width="8dp" android:layout_height="0dp" />
 
             <Button
+                android:id="@+id/noteDeleteButton"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:text="@string/note_delete"
+                android:visibility="gone" />
+
+        </LinearLayout>
+
+        <!-- Action buttons row 2: Add Image + Cancel -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:paddingTop="8dp">
+
+            <Button
+                android:id="@+id/addImageButton"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:text="@string/note_add_image" />
+
+            <Space android:layout_width="8dp" android:layout_height="0dp" />
+
+            <Button
                 android:id="@+id/noteCancelButton"
                 android:layout_width="0dp"
                 android:layout_height="wrap_content"
@@ -84,14 +103,6 @@
                 android:text="@string/cancel" />
 
         </LinearLayout>
-
-        <Button
-            android:id="@+id/noteDeleteButton"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="8dp"
-            android:text="@string/note_delete"
-            android:visibility="gone" />
 
     </LinearLayout>
 

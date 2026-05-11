@@ -116,6 +116,8 @@ class MainActivity : Activity() {
     // call set(false) in finally blocks, which is safe without atomic wrappers.
     private var isSaving  = false
     private var isLoading = false
+    // isDirty is also persisted in SharedPreferences so it survives process death.
+    // Read back in loadPrefs(), written in markDirty() and saveTodoFile().
     private var isDirty   = false
 
     // Current filter/sort state (used for non-inbox views)
@@ -541,7 +543,10 @@ class MainActivity : Activity() {
                     return@Thread
                 }
                 todoList.loadFromLines(lines)
-                persistTaskCache(lines)
+                // Only overwrite the cache with file contents when we know the file
+                // is authoritative (not dirty). If dirty, the in-memory list and
+                // existing cache are the source of truth — don't clobber them.
+                if (!isDirty) persistTaskCache(lines)
                 ReminderScheduler.schedule(this, prefs)
                 runOnUiThread {
                     if (activeView != ActiveView.INBOX) refreshList()
@@ -570,7 +575,10 @@ class MainActivity : Activity() {
                     runOnUiThread { Toast.makeText(this, R.string.save_error, Toast.LENGTH_SHORT).show() }
                 } else {
                     isDirty = false
-                    prefs.edit().putString(Prefs.LAST_SYNC_DATE, Prefs.todayString()).apply()
+                    prefs.edit()
+                        .putString(Prefs.LAST_SYNC_DATE, Prefs.todayString())
+                        .putBoolean(Prefs.IS_DIRTY, false)
+                        .apply()
                     ReminderScheduler.schedule(this, prefs)
                     postSave?.invoke()
                 }
@@ -689,6 +697,7 @@ class MainActivity : Activity() {
 
     private fun markDirty() {
         isDirty = true
+        prefs.edit().putBoolean(Prefs.IS_DIRTY, true).apply()
         persistTaskCache(todoList.toLines())
     }
 
@@ -711,6 +720,7 @@ class MainActivity : Activity() {
         filterContexts = p.getStringSet(Prefs.FILTER_CONTEXTS, emptySet())!!
         filterProjects = p.getStringSet(Prefs.FILTER_PROJECTS, emptySet())!!
         filterText     = p.getString(Prefs.FILTER_TEXT, "") ?: ""
+        isDirty        = p.getBoolean(Prefs.IS_DIRTY, false)
         activeView     = try {
             ActiveView.valueOf(p.getString(Prefs.ACTIVE_VIEW, ActiveView.NEXT.name)!!)
         } catch (_: IllegalArgumentException) { ActiveView.NEXT }

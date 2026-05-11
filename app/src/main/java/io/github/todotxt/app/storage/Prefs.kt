@@ -25,6 +25,7 @@ object Prefs {
     const val REMINDER_TIME   = "pref_reminder_time"
     const val LAST_SYNC_DATE  = "pref_last_sync_date"
     const val SHOW_COMPLETED  = "pref_show_completed"
+    const val IS_DIRTY        = "pref_is_dirty"
 
     /** Today's date as "YYYY-MM-DD". Equivalent to LocalDate.now().toString(). */
     fun todayString(): String = LocalDate.now().toString()
