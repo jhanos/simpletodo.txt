@@ -21,7 +21,7 @@ object SnapshotStore {
     private const val MAX_DAYS     = 30L
     private const val MAX_COUNT    = 200
     private val TS_FMT = DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ss")
-    private val FILE_FMT = DateTimeFormatter.ofPattern("yyyyMMdd_HHmmss")
+    private val FILE_FMT = DateTimeFormatter.ofPattern("yyyyMMdd_HHmmssSSS")
 
     // ── Public data classes ───────────────────────────────────────────────
 

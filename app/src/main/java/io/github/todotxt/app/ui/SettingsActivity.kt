@@ -244,6 +244,12 @@ class SettingsActivity : Activity() {
         }
         val cached = prefs.getString(Prefs.TASK_CACHE, null)
         val allLines = cached?.split('\n')?.filter { it.isNotBlank() } ?: emptyList()
+        // Guard: if the cache is empty we have no authoritative task list — abort
+        // to avoid accidentally writing an empty todo.txt.
+        if (allLines.isEmpty()) {
+            Toast.makeText(this, getString(R.string.archive_done, 0), Toast.LENGTH_SHORT).show()
+            return
+        }
         val tasks = allLines.map { Task(it) }
         val completed = tasks.filter { it.completed }
         if (completed.isEmpty()) {
@@ -268,20 +274,26 @@ class SettingsActivity : Activity() {
                 }
                 FileStorage.appendLines(this, doneUri, completedLines)
 
-                // Snapshot before archive so it's reversible
-                SnapshotStore.save(this, prefs, "Archive: ${completed.size} completed tasks")
-
-                // Release note data for archived tasks
-                completed.forEach { task -> task.noteId?.let { NoteStorage.delete(this, it) } }
-
                 val todoUri: Uri? = prefs.getString(Prefs.TODO_URI, null)
                     ?.let { Uri.parse(it) }
                     ?: FileStorage.findFile(this, treeUri, "todo.txt")?.also { resolved ->
                         prefs.edit().putString(Prefs.TODO_URI, resolved.toString()).apply()
                     }
                 if (todoUri != null) {
-                    FileStorage.writeLines(this, todoUri, incompleteLinesNew)
+                    if (!FileStorage.writeLines(this, todoUri, incompleteLinesNew)) {
+                        // todo.txt write failed — abort before deleting notes or updating cache
+                        runOnUiThread {
+                            Toast.makeText(this, R.string.save_error, Toast.LENGTH_LONG).show()
+                        }
+                        return@Thread
+                    }
                 }
+
+                // Snapshot before archive so it's reversible
+                SnapshotStore.save(this, prefs, "Archive: ${completed.size} completed tasks")
+
+                // Release note data for archived tasks — only after successful writes
+                completed.forEach { task -> task.noteId?.let { NoteStorage.delete(this, it) } }
 
                 // Update task cache and signal MainActivity to reload
                 prefs.edit().putString(Prefs.TASK_CACHE, incompleteLinesNew.joinToString("\n")).apply()

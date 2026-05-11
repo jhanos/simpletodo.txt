@@ -6,6 +6,7 @@ import android.content.Context
 import android.content.Intent
 import android.net.Uri
 import android.os.Bundle
+import android.view.LayoutInflater
 import android.view.Menu
 import android.view.MenuItem
 import android.view.View
@@ -47,6 +48,7 @@ data class DrawerProjectItem(val project: String) : DrawerItem()
 
 class DrawerAdapter(private val context: Context) : BaseAdapter() {
 
+    private val inflater = LayoutInflater.from(context)
     private var items: List<DrawerItem> = emptyList()
 
     fun setItems(newItems: List<DrawerItem>) {
@@ -69,20 +71,20 @@ class DrawerAdapter(private val context: Context) : BaseAdapter() {
         return when (val item = items[position]) {
             is DrawerSectionHeader -> {
                 val v = convertView
-                    ?: (context as Activity).layoutInflater.inflate(R.layout.item_header, parent, false)
+                    ?: inflater.inflate(R.layout.item_header, parent, false)
                 (v as TextView).text = item.label
                 v
             }
             is DrawerNavItem -> {
                 val v = convertView
-                    ?: (context as Activity).layoutInflater.inflate(
+                    ?: inflater.inflate(
                         android.R.layout.simple_list_item_activated_1, parent, false)
                 (v as TextView).text = item.label
                 v
             }
             is DrawerProjectItem -> {
                 val v = convertView
-                    ?: (context as Activity).layoutInflater.inflate(
+                    ?: inflater.inflate(
                         android.R.layout.simple_list_item_activated_1, parent, false)
                 (v as TextView).text = item.project
                 v
@@ -114,15 +116,17 @@ class MainActivity : Activity() {
     private lateinit var fab: Button
     private val prefs by lazy { getSharedPreferences(Prefs.NAME, MODE_PRIVATE) }
 
-    // Both flags are only meaningful on the main thread; background threads only
-    // call set(false) in finally blocks, which is safe without atomic wrappers.
-    private var isSaving  = false
-    private var isLoading = false
+    // Both flags guard concurrent file I/O. @Volatile ensures cross-thread visibility.
+    @Volatile private var isSaving  = false
+    @Volatile private var isLoading = false
     // isDirty is also persisted in SharedPreferences so it survives process death.
     // Read back in loadPrefs(), written in markDirty() and saveTodoFile().
-    private var isDirty   = false
+    @Volatile private var isDirty   = false
     // Descriptive message for the next snapshot commit (set by each mutation operation).
     private var pendingCommitMessage = "Auto-save"
+    // Set by onStop when a save is already in-flight; causes the in-flight save to chain
+    // another write when it completes so no dirty data is lost.
+    @Volatile private var pendingSaveOnStop = false
 
     // Current filter/sort state (used for non-inbox views)
     private var sortField      = SortField.PRIORITY
@@ -544,6 +548,7 @@ class MainActivity : Activity() {
             return
         }
         Thread {
+            var posted = false
             try {
                 if (isSaving) { DebugLog.d(this, "loadTodoFile: skipped on thread"); return@Thread }
                 val uri = FileStorage.resolveTodoUri(this, prefs)
@@ -560,15 +565,21 @@ class MainActivity : Activity() {
                 ReminderScheduler.schedule(this, prefs)
                 // loadFromLines clears and replaces the task list — must run on the main
                 // thread to avoid races with any concurrent mutation (add/edit/delete).
+                // isLoading is cleared here (not in finally) so a second loadTodoFile()
+                // call cannot start until after the UI has been fully updated.
+                posted = true
                 runOnUiThread {
                     todoList.loadFromLines(lines)
                     // Only overwrite the cache when file is authoritative (not dirty).
                     if (!isDirty) persistTaskCache(lines)
                     if (activeView != ActiveView.INBOX) refreshList()
                     rebuildDrawer()
+                    isLoading = false
                 }
             } finally {
-                isLoading = false
+                // Only clear isLoading here if we never posted to the UI thread
+                // (i.e. an early return path was taken before runOnUiThread was called).
+                if (!posted) isLoading = false
             }
         }.start()
     }
@@ -590,17 +601,24 @@ class MainActivity : Activity() {
                     prefs.edit().remove(Prefs.TODO_URI).apply()
                     runOnUiThread { Toast.makeText(this, R.string.save_error, Toast.LENGTH_SHORT).show() }
                 } else {
-                    isDirty = false
-                    prefs.edit()
-                        .putString(Prefs.LAST_SYNC_DATE, Prefs.todayString())
-                        .putBoolean(Prefs.IS_DIRTY, false)
-                        .apply()
+                    // isDirty must be cleared on the main thread to avoid racing with markDirty()
+                    runOnUiThread {
+                        isDirty = false
+                        prefs.edit()
+                            .putString(Prefs.LAST_SYNC_DATE, Prefs.todayString())
+                            .putBoolean(Prefs.IS_DIRTY, false)
+                            .apply()
+                    }
                     ReminderScheduler.schedule(this, prefs)
                     SnapshotStore.save(this, prefs, commitMessage)
                     postSave?.invoke()
                 }
             } finally {
                 isSaving = false
+                if (pendingSaveOnStop) {
+                    pendingSaveOnStop = false
+                    saveTodoFile(commitMessage = pendingCommitMessage)
+                }
             }
         }.start()
     }
@@ -724,7 +742,13 @@ class MainActivity : Activity() {
 
     override fun onStop() {
         super.onStop()
-        if (isDirty) saveTodoFile(commitMessage = pendingCommitMessage)
+        if (isDirty) {
+            if (isSaving) {
+                pendingSaveOnStop = true
+            } else {
+                saveTodoFile(commitMessage = pendingCommitMessage)
+            }
+        }
     }
 
     // ── Preferences ───────────────────────────────────────────────────────

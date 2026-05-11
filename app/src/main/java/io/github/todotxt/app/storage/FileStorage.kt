@@ -85,7 +85,7 @@ object FileStorage {
             DebugLog.e(context, "readLines EXCEPTION for $uri", e)
             if (retryOnFailure) {
                 DebugLog.d(context, "readLines: retrying after 2s delay")
-                Thread.sleep(2000)
+                try { Thread.sleep(2000) } catch (_: InterruptedException) { return null }
                 readLinesAttempt(context, uri, retryOnFailure = false)
             } else {
                 null

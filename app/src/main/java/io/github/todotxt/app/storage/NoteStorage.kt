@@ -4,6 +4,7 @@ import android.content.Context
 import android.content.Intent
 import android.net.Uri
 import io.github.todotxt.app.model.Note
+import io.github.todotxt.app.storage.DebugLog
 import org.json.JSONArray
 import org.json.JSONObject
 import java.io.File
@@ -77,8 +78,8 @@ object NoteStorage {
         }
     }
 
-    private fun writeAll(context: Context, all: Map<String, Note>) {
-        try {
+    private fun writeAll(context: Context, all: Map<String, Note>): Boolean {
+        return try {
             val json = JSONObject()
             all.forEach { (id, note) ->
                 val obj = JSONObject()
@@ -89,7 +90,11 @@ object NoteStorage {
                 json.put(id, obj)
             }
             file(context).writeText(json.toString())
-        } catch (_: Exception) {}
+            true
+        } catch (e: Exception) {
+            DebugLog.e(context, "NoteStorage.writeAll failed", e)
+            false
+        }
     }
 
     private fun takePermission(context: Context, uriString: String) {

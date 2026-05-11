@@ -189,7 +189,14 @@ class Task(text: String) {
         val interval = pattern.removePrefix("+")
         // Always assign a due date on the new recurring task (create one if absent)
         newTask.dueDate = addInterval(baseDate, interval)
-        newTask.thresholdDate?.let { newTask.thresholdDate = addInterval(baseDate, interval) }
+        // Shift the threshold by the same number of days as the due date moved,
+        // so the lead time between threshold and due is preserved.
+        newTask.thresholdDate?.let { oldThreshold ->
+            val oldDue = java.time.LocalDate.parse(if (strict) dateStr else (dueDate ?: thresholdDate ?: dateStr))
+            val newDue = java.time.LocalDate.parse(newTask.dueDate ?: oldDue.toString())
+            val offsetDays = java.time.temporal.ChronoUnit.DAYS.between(oldDue, newDue)
+            newTask.thresholdDate = java.time.LocalDate.parse(oldThreshold).plusDays(offsetDays).toString()
+        }
         if (newTask.createDate != null) newTask.createDate = dateStr
         return newTask
     }
