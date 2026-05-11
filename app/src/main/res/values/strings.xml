@@ -85,7 +85,9 @@
     <string name="reminder_time_label">Reminder time</string>
     <string name="reminder_channel_name">Task reminders</string>
     <string name="reminder_channel_desc">Daily notifications for tasks due today</string>
-    <string name="reminder_title">Task due today</string>
+    <string name="reminder_title_tomorrow">Due tomorrow</string>
+    <string name="reminder_title_today">Due today</string>
+    <string name="reminder_title_overdue">Overdue · %d days</string>
     <string name="reminder_rationale">Notification permission is needed to show task reminders.</string>
     <string name="reminder_permission_denied">Notification permission denied — reminders disabled.</string>
     <string name="test_reminder">Send test notification</string>

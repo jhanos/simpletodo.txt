@@ -9,8 +9,10 @@ import android.content.Intent
 import io.github.todotxt.app.R
 import io.github.todotxt.app.model.Task
 import io.github.todotxt.app.storage.DebugLog
+import io.github.todotxt.app.storage.DueStatus
 import io.github.todotxt.app.storage.Prefs
 import io.github.todotxt.app.storage.ReminderScheduler
+import io.github.todotxt.app.storage.TaskReminder
 
 class ReminderReceiver : BroadcastReceiver() {
 
@@ -37,13 +39,13 @@ class ReminderReceiver : BroadcastReceiver() {
                 emptyList()
             }
 
-            val due = ReminderScheduler.tasksToRemind(tasks, today)
+            val due = ReminderScheduler.remindersToFire(tasks, today)
             DebugLog.d(context, "ReminderReceiver.fireNow: ${due.size} tasks due or overdue")
 
             if (due.isEmpty()) return
 
-            due.forEachIndexed { index, task ->
-                postNotification(context, nm, index, task)
+            due.forEachIndexed { index, reminder ->
+                postNotification(context, nm, index, reminder)
             }
         }
 
@@ -51,8 +53,9 @@ class ReminderReceiver : BroadcastReceiver() {
             context: Context,
             nm: NotificationManager,
             index: Int,
-            task: Task
+            reminder: TaskReminder
         ) {
+            val task = reminder.task
             val tapIntent = PendingIntent.getActivity(
                 context,
                 index,
@@ -62,9 +65,15 @@ class ReminderReceiver : BroadcastReceiver() {
                 PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
             )
 
+            val title = when (reminder.status) {
+                DueStatus.TOMORROW -> context.getString(R.string.reminder_title_tomorrow)
+                DueStatus.TODAY    -> context.getString(R.string.reminder_title_today)
+                DueStatus.OVERDUE  -> context.getString(R.string.reminder_title_overdue, reminder.daysOverdue)
+            }
+
             val notification = android.app.Notification.Builder(context, CHANNEL_ID)
                 .setSmallIcon(android.R.drawable.ic_popup_reminder)
-                .setContentTitle(context.getString(R.string.reminder_title))
+                .setContentTitle(title)
                 .setContentText(task.displayText.ifBlank { task.text })
                 .setContentIntent(tapIntent)
                 .setAutoCancel(true)

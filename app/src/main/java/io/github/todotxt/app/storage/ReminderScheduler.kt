@@ -7,8 +7,15 @@ import android.content.Intent
 import android.content.SharedPreferences
 import android.os.Build
 import io.github.todotxt.app.model.Task
+import java.time.LocalDate
 import java.time.LocalDateTime
 import java.time.ZoneId
+import java.time.format.DateTimeFormatter
+import java.time.temporal.ChronoUnit
+
+enum class DueStatus { TOMORROW, TODAY, OVERDUE }
+
+data class TaskReminder(val task: Task, val status: DueStatus, val daysOverdue: Int = 0)
 
 object ReminderScheduler {
 
@@ -98,11 +105,30 @@ object ReminderScheduler {
     }
 
     /**
-     * Given today's date string and all tasks, return those that are due today
-     * or overdue and not already completed.
+     * Given today's date string and all tasks, return [TaskReminder] entries for
+     * tasks due tomorrow, today, or overdue.
+     *
+     * Skips: completed tasks, tasks without a due date, frozen tasks, someday tasks.
      */
-    fun tasksToRemind(tasks: List<Task>, today: String): List<Task> =
-        tasks.filter { !it.completed && it.dueDate != null && it.dueDate!! <= today }
+    fun remindersToFire(tasks: List<Task>, today: String): List<TaskReminder> {
+        val fmt = DateTimeFormatter.ofPattern("yyyy-MM-dd")
+        val todayDate = LocalDate.parse(today, fmt)
+        val tomorrowStr = todayDate.plusDays(1).format(fmt)
+        return tasks.mapNotNull { task ->
+            if (task.completed || task.dueDate == null || task.isFrozen || task.isSomeday) return@mapNotNull null
+            val due = task.dueDate!!
+            when {
+                due == tomorrowStr -> TaskReminder(task, DueStatus.TOMORROW)
+                due == today       -> TaskReminder(task, DueStatus.TODAY)
+                due < today        -> {
+                    val dueDate = LocalDate.parse(due, fmt)
+                    val days = ChronoUnit.DAYS.between(dueDate, todayDate).toInt()
+                    TaskReminder(task, DueStatus.OVERDUE, days)
+                }
+                else -> null
+            }
+        }
+    }
 
     private fun buildPendingIntent(context: Context): PendingIntent {
         val intent = Intent(ACTION_REMINDER).apply {
