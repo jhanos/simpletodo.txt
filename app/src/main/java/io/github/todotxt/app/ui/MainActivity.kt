@@ -121,6 +121,8 @@ class MainActivity : Activity() {
     // isDirty is also persisted in SharedPreferences so it survives process death.
     // Read back in loadPrefs(), written in markDirty() and saveTodoFile().
     private var isDirty   = false
+    // Descriptive message for the next snapshot commit (set by each mutation operation).
+    private var pendingCommitMessage = "Auto-save"
 
     // Current filter/sort state (used for non-inbox views)
     private var sortField      = SortField.PRIORITY
@@ -239,29 +241,26 @@ class MainActivity : Activity() {
             REQ_ADD_TASK -> if (resultCode == RESULT_OK) {
                 val raw = data?.getStringExtra(AddEditActivity.EXTRA_TASK_TEXT) ?: return
                 todoList.add(Task(raw))
+                pendingCommitMessage = "Add: ${Task(raw).displayText.take(40)}"
                 markDirty()
                 refreshList()
-                val display = Task(raw).displayText.take(40)
-                saveTodoFile(commitMessage = "Add: $display")
             }
             REQ_EDIT_TASK -> if (resultCode == RESULT_OK) {
                 if (data?.getBooleanExtra(AddEditActivity.EXTRA_DELETE, false) == true) {
                     val oldText = data.getStringExtra(AddEditActivity.EXTRA_OLD_TASK_TEXT) ?: return
                     val oldTask = todoList.getAll().firstOrNull { it.text == oldText } ?: return
-                    val display = oldTask.displayText.take(40)
+                    pendingCommitMessage = "Delete: ${oldTask.displayText.take(40)}"
                     todoList.remove(oldTask)
                     markDirty()
                     refreshList()
-                    saveTodoFile(commitMessage = "Delete: $display")
                 } else {
                     val raw     = data?.getStringExtra(AddEditActivity.EXTRA_TASK_TEXT) ?: return
                     val oldText = data.getStringExtra(AddEditActivity.EXTRA_OLD_TASK_TEXT) ?: return
                     val oldTask = todoList.getAll().firstOrNull { it.text == oldText } ?: return
                     todoList.update(oldTask, Task(raw))
+                    pendingCommitMessage = "Edit: ${Task(raw).displayText.take(40)}"
                     markDirty()
                     refreshList()
-                    val display = Task(raw).displayText.take(40)
-                    saveTodoFile(commitMessage = "Edit: $display")
                 }
             }
             REQ_FILTER -> if (resultCode == RESULT_OK && data != null) {
@@ -414,8 +413,10 @@ class MainActivity : Activity() {
         val today = Prefs.todayString()
         if (item.task.completed) {
             todoList.markIncomplete(item.task)
+            pendingCommitMessage = "Uncomplete: ${item.task.displayText.take(40)}"
         } else {
             todoList.markComplete(item.task, today)
+            pendingCommitMessage = "Complete: ${item.task.displayText.take(40)}"
         }
         markDirty()
         refreshList()
@@ -437,6 +438,7 @@ class MainActivity : Activity() {
             .setMessage(R.string.delete_confirm)
             .setPositiveButton(R.string.yes) { _, _ ->
                 item.task.noteId?.let { NoteStorage.delete(this, it) }
+                pendingCommitMessage = "Delete: ${item.task.displayText.take(40)}"
                 todoList.remove(item.task)
                 markDirty()
                 refreshList()
@@ -447,12 +449,16 @@ class MainActivity : Activity() {
 
     private fun toggleFreeze(item: TaskItem) {
         item.task.isFrozen = !item.task.isFrozen
+        pendingCommitMessage = if (item.task.isFrozen) "Freeze: ${item.task.displayText.take(40)}"
+                               else "Unfreeze: ${item.task.displayText.take(40)}"
         markDirty()
         refreshList()
     }
 
     private fun toggleSomeday(item: TaskItem) {
         item.task.isSomeday = !item.task.isSomeday
+        pendingCommitMessage = if (item.task.isSomeday) "Someday: ${item.task.displayText.take(40)}"
+                               else "Unsomeday: ${item.task.displayText.take(40)}"
         markDirty()
         refreshList()
     }
@@ -551,13 +557,13 @@ class MainActivity : Activity() {
                     runOnUiThread { Toast.makeText(this, R.string.load_error, Toast.LENGTH_SHORT).show() }
                     return@Thread
                 }
-                todoList.loadFromLines(lines)
-                // Only overwrite the cache with file contents when we know the file
-                // is authoritative (not dirty). If dirty, the in-memory list and
-                // existing cache are the source of truth — don't clobber them.
-                if (!isDirty) persistTaskCache(lines)
                 ReminderScheduler.schedule(this, prefs)
+                // loadFromLines clears and replaces the task list — must run on the main
+                // thread to avoid races with any concurrent mutation (add/edit/delete).
                 runOnUiThread {
+                    todoList.loadFromLines(lines)
+                    // Only overwrite the cache when file is authoritative (not dirty).
+                    if (!isDirty) persistTaskCache(lines)
                     if (activeView != ActiveView.INBOX) refreshList()
                     rebuildDrawer()
                 }
@@ -569,6 +575,7 @@ class MainActivity : Activity() {
 
     private fun saveTodoFile(postSave: (() -> Unit)? = null, commitMessage: String = "Auto-save") {
         if (prefs.getString(Prefs.TREE_URI, null) == null) return
+        if (isSaving) { DebugLog.d(this, "saveTodoFile: skipped — already saving"); return }
         val lines = todoList.toLines()
         isSaving = true
         Thread {
@@ -717,7 +724,7 @@ class MainActivity : Activity() {
 
     override fun onStop() {
         super.onStop()
-        if (isDirty) saveTodoFile(commitMessage = "Auto-save")
+        if (isDirty) saveTodoFile(commitMessage = pendingCommitMessage)
     }
 
     // ── Preferences ───────────────────────────────────────────────────────
