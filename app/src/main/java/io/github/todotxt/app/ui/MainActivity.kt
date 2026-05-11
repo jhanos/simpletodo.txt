@@ -31,6 +31,7 @@ import io.github.todotxt.app.storage.FileStorage
 import io.github.todotxt.app.storage.NoteStorage
 import io.github.todotxt.app.storage.Prefs
 import io.github.todotxt.app.storage.ReminderScheduler
+import io.github.todotxt.app.storage.SnapshotStore
 import java.time.LocalDate
 
 enum class ActiveView { INBOX, NEXT, FROZEN, SCHEDULED, SOMEDAY, PROJECT }
@@ -101,6 +102,7 @@ class MainActivity : Activity() {
         private const val REQ_SETTINGS     = 4
         private const val REQ_INBOX_ADD    = 5
         private const val REQ_INBOX_EDIT   = 6
+        private const val REQ_HISTORY      = 7
     }
 
     private val todoList = TodoList()
@@ -239,20 +241,28 @@ class MainActivity : Activity() {
                 todoList.add(Task(raw))
                 markDirty()
                 refreshList()
+                val display = Task(raw).displayText.take(40)
+                saveTodoFile(commitMessage = "Add: $display")
             }
             REQ_EDIT_TASK -> if (resultCode == RESULT_OK) {
                 if (data?.getBooleanExtra(AddEditActivity.EXTRA_DELETE, false) == true) {
                     val oldText = data.getStringExtra(AddEditActivity.EXTRA_OLD_TASK_TEXT) ?: return
                     val oldTask = todoList.getAll().firstOrNull { it.text == oldText } ?: return
+                    val display = oldTask.displayText.take(40)
                     todoList.remove(oldTask)
+                    markDirty()
+                    refreshList()
+                    saveTodoFile(commitMessage = "Delete: $display")
                 } else {
                     val raw     = data?.getStringExtra(AddEditActivity.EXTRA_TASK_TEXT) ?: return
                     val oldText = data.getStringExtra(AddEditActivity.EXTRA_OLD_TASK_TEXT) ?: return
                     val oldTask = todoList.getAll().firstOrNull { it.text == oldText } ?: return
                     todoList.update(oldTask, Task(raw))
+                    markDirty()
+                    refreshList()
+                    val display = Task(raw).displayText.take(40)
+                    saveTodoFile(commitMessage = "Edit: $display")
                 }
-                markDirty()
-                refreshList()
             }
             REQ_FILTER -> if (resultCode == RESULT_OK && data != null) {
                 sortField      = SortField.valueOf(
@@ -505,8 +515,7 @@ class MainActivity : Activity() {
     private fun startupSync() {
         val lastSync = prefs.getString(Prefs.LAST_SYNC_DATE, null)
         if (lastSync != Prefs.todayString() || isDirty) {
-            // First open of the day, or unsaved changes — flush to SAF then pull
-            saveTodoFile(postSave = { loadTodoFile() })
+            saveTodoFile(postSave = { loadTodoFile() }, commitMessage = "Startup sync")
         } else {
             loadTodoFile()
         }
@@ -514,7 +523,7 @@ class MainActivity : Activity() {
 
     private fun syncNow() {
         Toast.makeText(this, R.string.syncing, Toast.LENGTH_SHORT).show()
-        saveTodoFile(postSave = { loadTodoFile() })
+        saveTodoFile(postSave = { loadTodoFile() }, commitMessage = "Manual sync")
     }
 
     // ── File I/O ──────────────────────────────────────────────────────────
@@ -558,7 +567,7 @@ class MainActivity : Activity() {
         }.start()
     }
 
-    private fun saveTodoFile(postSave: (() -> Unit)? = null) {
+    private fun saveTodoFile(postSave: (() -> Unit)? = null, commitMessage: String = "Auto-save") {
         if (prefs.getString(Prefs.TREE_URI, null) == null) return
         val lines = todoList.toLines()
         isSaving = true
@@ -580,6 +589,7 @@ class MainActivity : Activity() {
                         .putBoolean(Prefs.IS_DIRTY, false)
                         .apply()
                     ReminderScheduler.schedule(this, prefs)
+                    SnapshotStore.save(this, prefs, commitMessage)
                     postSave?.invoke()
                 }
             } finally {
@@ -707,7 +717,7 @@ class MainActivity : Activity() {
 
     override fun onStop() {
         super.onStop()
-        if (isDirty) saveTodoFile()
+        if (isDirty) saveTodoFile(commitMessage = "Auto-save")
     }
 
     // ── Preferences ───────────────────────────────────────────────────────

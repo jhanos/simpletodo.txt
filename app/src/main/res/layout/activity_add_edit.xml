@@ -282,21 +282,12 @@
 
         </LinearLayout>
 
-        <!-- D: Note + Save + Cancel on one row -->
+        <!-- Row 1: Save + Cancel -->
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:orientation="horizontal"
             android:paddingTop="8dp">
-
-            <Button
-                android:id="@+id/noteButton"
-                android:layout_width="0dp"
-                android:layout_height="wrap_content"
-                android:layout_weight="1"
-                android:text="@string/note_add" />
-
-            <Space android:layout_width="8dp" android:layout_height="0dp" />
 
             <Button
                 android:id="@+id/saveButton"
@@ -316,13 +307,32 @@
 
         </LinearLayout>
 
-        <Button
-            android:id="@+id/deleteButton"
+        <!-- Row 2: Note + Delete (edit mode only, red) -->
+        <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="8dp"
-            android:text="@string/delete"
-            android:visibility="gone" />
+            android:orientation="horizontal"
+            android:paddingTop="8dp">
+
+            <Button
+                android:id="@+id/noteButton"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:text="@string/note_add" />
+
+            <Space android:layout_width="8dp" android:layout_height="0dp" />
+
+            <Button
+                android:id="@+id/deleteButton"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:text="@string/delete"
+                android:textColor="#F44336"
+                android:visibility="gone" />
+
+        </LinearLayout>
 
     </LinearLayout>
 

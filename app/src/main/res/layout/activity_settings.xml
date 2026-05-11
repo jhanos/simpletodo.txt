@@ -33,6 +33,22 @@
             android:layout_height="wrap_content"
             android:text="@string/choose_folder" />
 
+        <!-- ── History ────────────────────────────────────────────── -->
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="@string/history_label"
+            android:textStyle="bold"
+            android:paddingTop="24dp"
+            android:paddingBottom="4dp" />
+
+        <Button
+            android:id="@+id/historyButton"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="@string/history_button" />
+
         <!-- ── Archive ────────────────────────────────────────────── -->
 
         <TextView

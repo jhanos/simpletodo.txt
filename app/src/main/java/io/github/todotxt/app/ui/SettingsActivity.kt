@@ -24,12 +24,14 @@ import io.github.todotxt.app.storage.FileStorage
 import io.github.todotxt.app.storage.NoteStorage
 import io.github.todotxt.app.storage.Prefs
 import io.github.todotxt.app.storage.ReminderScheduler
+import io.github.todotxt.app.storage.SnapshotStore
 
 class SettingsActivity : Activity() {
 
     companion object {
         private const val REQ_OPEN_TREE          = 10
         private const val REQ_NOTIFICATION_PERM  = 11
+        private const val REQ_HISTORY            = 12
     }
 
     private val prefs by lazy { getSharedPreferences(Prefs.NAME, MODE_PRIVATE) }
@@ -87,6 +89,10 @@ class SettingsActivity : Activity() {
 
         archiveButton.setOnClickListener { archiveCompleted() }
 
+        findViewById<Button>(R.id.historyButton).setOnClickListener {
+            startActivityForResult(Intent(this, HistoryActivity::class.java), REQ_HISTORY)
+        }
+
         findViewById<Button>(R.id.copyDebugLogButton).setOnClickListener {
             val log = DebugLog.read(this)
             val cm = getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
@@ -97,6 +103,14 @@ class SettingsActivity : Activity() {
 
     override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
         super.onActivityResult(requestCode, resultCode, data)
+        if (requestCode == REQ_HISTORY) {
+            if (resultCode == RESULT_OK &&
+                data?.getBooleanExtra(HistoryActivity.EXTRA_RESTORED, false) == true) {
+                // Forward restore signal to MainActivity
+                setResult(RESULT_OK, Intent().putExtra(HistoryActivity.EXTRA_RESTORED, true))
+            }
+            return
+        }
         if (requestCode != REQ_OPEN_TREE || resultCode != RESULT_OK) return
         val treeUri = data?.data ?: return
 
@@ -253,6 +267,9 @@ class SettingsActivity : Activity() {
                     return@Thread
                 }
                 FileStorage.appendLines(this, doneUri, completedLines)
+
+                // Snapshot before archive so it's reversible
+                SnapshotStore.save(this, prefs, "Archive: ${completed.size} completed tasks")
 
                 // Release note data for archived tasks
                 completed.forEach { task -> task.noteId?.let { NoteStorage.delete(this, it) } }

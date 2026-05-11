@@ -114,4 +114,21 @@
     <string name="note_badge">note</string>
     <string name="add_note">Add note</string>
     <string name="edit_note">Edit note</string>
+
+    <!-- History / Snapshots -->
+    <string name="history_label">History &amp; Rollback</string>
+    <string name="history_button">View history…</string>
+    <string name="history_title">History</string>
+    <string name="history_empty">No snapshots yet.\nSnapshots are saved automatically after each change.</string>
+    <string name="history_empty_todo">(empty)</string>
+    <string name="history_preview_label">todo.txt preview:</string>
+    <string name="history_restore">Restore</string>
+    <string name="history_restore_confirm">Restore to this snapshot? Current tasks will be overwritten.</string>
+    <string name="history_restoring">Restoring…</string>
+    <string name="history_restored_ok">Restored successfully</string>
+    <string name="history_restore_error">Restore failed — check your folder connection</string>
+    <string name="history_load_error">Could not load snapshot</string>
+    <string name="history_today">Today</string>
+    <string name="history_yesterday">Yesterday</string>
+    <string name="history_restore_snapshot_msg">Restore from %s</string>
 </resources>

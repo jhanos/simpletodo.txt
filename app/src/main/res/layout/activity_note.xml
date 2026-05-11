@@ -53,7 +53,7 @@
 
         </HorizontalScrollView>
 
-        <!-- Action buttons row 1: Save (always) + Delete (edit mode only) -->
+        <!-- Action buttons row 1: Save + Cancel -->
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
@@ -70,16 +70,15 @@
             <Space android:layout_width="8dp" android:layout_height="0dp" />
 
             <Button
-                android:id="@+id/noteDeleteButton"
+                android:id="@+id/noteCancelButton"
                 android:layout_width="0dp"
                 android:layout_height="wrap_content"
                 android:layout_weight="1"
-                android:text="@string/note_delete"
-                android:visibility="gone" />
+                android:text="@string/cancel" />
 
         </LinearLayout>
 
-        <!-- Action buttons row 2: Add Image + Cancel -->
+        <!-- Action buttons row 2: Add Image + Delete (edit mode only) -->
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
@@ -96,11 +95,13 @@
             <Space android:layout_width="8dp" android:layout_height="0dp" />
 
             <Button
-                android:id="@+id/noteCancelButton"
+                android:id="@+id/noteDeleteButton"
                 android:layout_width="0dp"
                 android:layout_height="wrap_content"
                 android:layout_weight="1"
-                android:text="@string/cancel" />
+                android:text="@string/note_delete"
+                android:textColor="#F44336"
+                android:visibility="gone" />
 
         </LinearLayout>
 

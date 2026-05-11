@@ -56,6 +56,11 @@
             android:label="@string/add_note"
             android:windowSoftInputMode="adjustResize" />
 
+        <activity
+            android:name=".ui.HistoryActivity"
+            android:exported="false"
+            android:label="@string/history_title" />
+
         <receiver
             android:name=".ui.ReminderReceiver"
             android:exported="true">
