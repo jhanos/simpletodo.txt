@@ -685,22 +685,22 @@ class MainActivity : Activity() {
             }
 
             ActiveView.FROZEN -> todoList.getAll()
-                .filter { it.isFrozen }
+                .filter { it.isFrozen && (!it.completed || showCompleted) }
                 .sortedWith(compareBy({ it.dueDate ?: "9999-99-99" }, { it.text }))
                 .map { TaskItem(it) }
 
             ActiveView.SCHEDULED -> todoList.getAll()
-                .filter { it.dueDate != null }
+                .filter { it.dueDate != null && (!it.completed || showCompleted) }
                 .sortedWith(compareBy({ it.dueDate!! }, { it.text }))
                 .map { TaskItem(it) }
 
             ActiveView.SOMEDAY -> todoList.getAll()
-                .filter { it.isSomeday }
+                .filter { it.isSomeday && (!it.completed || showCompleted) }
                 .sortedWith(compareBy({ it.dueDate ?: "9999-99-99" }, { it.text }))
                 .map { TaskItem(it) }
 
             ActiveView.PROJECT -> todoList.getAll()
-                .filter { activeProject in it.projects }
+                .filter { activeProject in it.projects && (!it.completed || showCompleted) }
                 .sortedWith(compareBy({ it.dueDate ?: "9999-99-99" }, { it.text }))
                 .map { TaskItem(it) }
 
