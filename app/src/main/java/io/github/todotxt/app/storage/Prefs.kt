@@ -14,6 +14,7 @@ object Prefs {
     const val TREE_URI        = "pref_tree_uri"
     const val TODO_URI        = "pref_todo_uri"
     const val DONE_URI        = "pref_done_uri"
+    const val INBOX_URI       = "pref_inbox_uri"
     const val TASK_CACHE      = "pref_task_cache"
     const val SORT_FIELD      = "pref_sort_field"
     const val SHOW_FUTURE     = "pref_show_future"

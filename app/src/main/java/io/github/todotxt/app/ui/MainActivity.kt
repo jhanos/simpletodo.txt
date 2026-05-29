@@ -281,7 +281,7 @@ class MainActivity : Activity() {
                 refreshList()
             }
             REQ_SETTINGS -> {
-                prefs.edit().remove(Prefs.TODO_URI).remove(Prefs.DONE_URI).apply()
+                prefs.edit().remove(Prefs.TODO_URI).remove(Prefs.DONE_URI).remove(Prefs.INBOX_URI).apply()
                 loadTodoFile()
             }
             REQ_INBOX_ADD, REQ_INBOX_EDIT -> if (resultCode == RESULT_OK && data != null) {
@@ -370,6 +370,7 @@ class MainActivity : Activity() {
         }
 
         highlightDrawer()
+        invalidateOptionsMenu()
 
         if (view == ActiveView.INBOX) {
             listView.adapter = inboxAdapter
@@ -391,6 +392,7 @@ class MainActivity : Activity() {
         listView.adapter = adapter
         refreshList()
         highlightDrawer()
+        invalidateOptionsMenu()
         closeDrawer()
     }
 

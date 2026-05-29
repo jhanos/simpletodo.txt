@@ -168,7 +168,12 @@ object FileStorage {
      */
     fun readInboxLines(context: Context, treeUri: Uri): List<String> {
         return try {
-            val uri = findFile(context, treeUri, "inbox.txt") ?: return emptyList()
+            val prefs = context.getSharedPreferences(Prefs.NAME, Context.MODE_PRIVATE)
+            val uri = prefs.getString(Prefs.INBOX_URI, null)?.let { Uri.parse(it) }
+                ?: findFile(context, treeUri, "inbox.txt")?.also { resolved ->
+                    prefs.edit().putString(Prefs.INBOX_URI, resolved.toString()).apply()
+                }
+                ?: return emptyList()
             val stream = context.contentResolver.openInputStream(uri) ?: return emptyList()
             stream.use {
                 BufferedReader(InputStreamReader(it, Charsets.UTF_8)).readLines()
