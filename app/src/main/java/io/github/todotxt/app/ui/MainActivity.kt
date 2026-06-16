@@ -525,9 +525,20 @@ class MainActivity : Activity() {
     // ── Sync ──────────────────────────────────────────────────────────────
 
     private fun startupSync() {
-        val lastSync = prefs.getString(Prefs.LAST_SYNC_DATE, null)
-        if (lastSync != Prefs.todayString() || isDirty) {
-            saveTodoFile(postSave = { loadTodoFile() }, commitMessage = "Startup sync")
+        if (isDirty) {
+            // Capture dirty local state before loading from Nextcloud.
+            // Loading first forces Nextcloud to download the file; once that succeeds
+            // we restore the dirty lines and save them — avoiding the write-before-download
+            // failure. If the load itself fails (no network), we skip the write and stay
+            // on cached data.
+            val dirtyLines = todoList.toLines()
+            DebugLog.d(this, "startupSync: dirty — loading first to prime Nextcloud, then saving")
+            loadTodoFile(onLoaded = {
+                DebugLog.d(this, "startupSync: load succeeded — restoring dirty state and saving")
+                todoList.loadFromLines(dirtyLines)
+                refreshList()
+                saveTodoFile(postSave = { loadTodoFile() }, commitMessage = "Startup sync")
+            })
         } else {
             loadTodoFile()
         }
@@ -540,7 +551,7 @@ class MainActivity : Activity() {
 
     // ── File I/O ──────────────────────────────────────────────────────────
 
-    private fun loadTodoFile() {
+    private fun loadTodoFile(onLoaded: (() -> Unit)? = null) {
         if (isSaving) { DebugLog.d(this, "loadTodoFile: skipped — write in flight"); return }
         if (isLoading) { DebugLog.d(this, "loadTodoFile: already in flight"); return }
         isLoading = true
@@ -577,6 +588,7 @@ class MainActivity : Activity() {
                     if (activeView != ActiveView.INBOX) refreshList()
                     rebuildDrawer()
                     isLoading = false
+                    onLoaded?.invoke()
                 }
             } finally {
                 // Only clear isLoading here if we never posted to the UI thread

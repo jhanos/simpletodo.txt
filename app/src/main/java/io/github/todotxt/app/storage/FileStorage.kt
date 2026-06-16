@@ -63,34 +63,39 @@ object FileStorage {
 
     /** Read all non-blank lines from a document Uri. Returns null on error, empty list for an empty file. */
     fun readLines(context: Context, uri: Uri): List<String>? {
-        return readLinesAttempt(context, uri, retryOnFailure = true)
-    }
-
-    private fun readLinesAttempt(context: Context, uri: Uri, retryOnFailure: Boolean): List<String>? {
-        return try {
-            DebugLog.d(context, "readLines: opening $uri")
-            val stream = context.contentResolver.openInputStream(uri)
-            if (stream == null) {
-                DebugLog.e(context, "readLines: openInputStream returned null for $uri")
-                return emptyList()
+        val maxAttempts = 10
+        val retryDelayMs = 3000L
+        for (attempt in 0 until maxAttempts) {
+            if (attempt > 0) {
+                DebugLog.d(context, "readLines: attempt ${attempt + 1}/$maxAttempts — waiting ${retryDelayMs}ms for Nextcloud download")
+                try { Thread.sleep(retryDelayMs) } catch (_: InterruptedException) { return null }
             }
-            val lines = stream.use {
-                BufferedReader(InputStreamReader(it, Charsets.UTF_8))
-                    .readLines()
-                    .filter { l -> l.isNotBlank() }
-            }
-            DebugLog.d(context, "readLines: got ${lines.size} lines from $uri")
-            lines
-        } catch (e: Exception) {
-            DebugLog.e(context, "readLines EXCEPTION for $uri", e)
-            if (retryOnFailure) {
-                DebugLog.d(context, "readLines: retrying after 2s delay")
-                try { Thread.sleep(2000) } catch (_: InterruptedException) { return null }
-                readLinesAttempt(context, uri, retryOnFailure = false)
-            } else {
-                null
+            try {
+                DebugLog.d(context, "readLines: opening $uri")
+                val stream = context.contentResolver.openInputStream(uri)
+                if (stream == null) {
+                    DebugLog.e(context, "readLines: openInputStream returned null for $uri")
+                    return emptyList()
+                }
+                val lines = stream.use {
+                    BufferedReader(InputStreamReader(it, Charsets.UTF_8))
+                        .readLines()
+                        .filter { l -> l.isNotBlank() }
+                }
+                DebugLog.d(context, "readLines: got ${lines.size} lines from $uri (attempt ${attempt + 1})")
+                return lines
+            } catch (e: Exception) {
+                val isDownloading = e.message?.contains("downloading", ignoreCase = true) == true
+                if (isDownloading) {
+                    DebugLog.d(context, "readLines: attempt ${attempt + 1} — Nextcloud still downloading")
+                } else {
+                    DebugLog.e(context, "readLines EXCEPTION for $uri", e)
+                    return null
+                }
             }
         }
+        DebugLog.e(context, "readLines: failed after $maxAttempts attempts for $uri")
+        return null
     }
 
     /**

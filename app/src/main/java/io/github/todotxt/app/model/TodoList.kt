@@ -95,7 +95,7 @@ class TodoList {
         val newTask = task.markComplete(dateStr)
         if (newTask != null) {
             val idx = tasks.indexOf(task)
-            if (idx >= 0) tasks.add(idx + 1, newTask)
+            if (idx >= 0) tasks[idx] = newTask else tasks.add(newTask)
         }
         invalidateCache()
         return newTask
