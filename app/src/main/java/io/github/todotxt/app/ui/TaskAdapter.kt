@@ -71,7 +71,8 @@ class TaskAdapter(
     private val onEdit: (taskItem: TaskItem) -> Unit,
     private val onDelete: (taskItem: TaskItem) -> Unit,
     private val onToggleFreeze: (taskItem: TaskItem) -> Unit,
-    private val onToggleSomeday: (taskItem: TaskItem) -> Unit = {}
+    private val onToggleSomeday: (taskItem: TaskItem) -> Unit = {},
+    private val onOpenNote: (taskItem: TaskItem) -> Unit = {}
 ) : BaseAdapter() {
 
     companion object {
@@ -170,7 +171,11 @@ class TaskAdapter(
                     if (task.isFrozen) holder.tagsRow.addView(makeFrozenBadge())
                     if (task.isSomeday) holder.tagsRow.addView(makeSomedayBadge())
                     task.recurrencePattern?.let { holder.tagsRow.addView(makeRecurringBadge(it)) }
-                    if (task.noteId != null) holder.tagsRow.addView(makeNoteBadge())
+                    if (task.noteId != null) {
+                        val noteBadge = makeNoteBadge()
+                        noteBadge.setOnClickListener { onOpenNote(item) }
+                        holder.tagsRow.addView(noteBadge)
+                    }
                     tags.forEach { (label, isProject) ->
                         holder.tagsRow.addView(makeTagPill(label, isProject))
                     }

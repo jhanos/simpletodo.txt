@@ -105,6 +105,7 @@ class MainActivity : Activity() {
         private const val REQ_INBOX_ADD    = 5
         private const val REQ_INBOX_EDIT   = 6
         private const val REQ_HISTORY      = 7
+        private const val REQ_OPEN_NOTE    = 8
     }
 
     private val todoList = TodoList()
@@ -115,6 +116,8 @@ class MainActivity : Activity() {
     private lateinit var drawerScrim: View
     private lateinit var fab: Button
     private val prefs by lazy { getSharedPreferences(Prefs.NAME, MODE_PRIVATE) }
+
+    private var pendingNoteItem: TaskItem? = null
 
     // Both flags guard concurrent file I/O. @Volatile ensures cross-thread visibility.
     @Volatile private var isSaving  = false
@@ -167,7 +170,8 @@ class MainActivity : Activity() {
             onEdit           = { item -> openEdit(item) },
             onDelete         = { item -> confirmDelete(item) },
             onToggleFreeze   = { item -> toggleFreeze(item) },
-            onToggleSomeday  = { item -> toggleSomeday(item) }
+            onToggleSomeday  = { item -> toggleSomeday(item) },
+            onOpenNote       = { item -> openNote(item) }
         )
         listView.adapter = adapter
 
@@ -286,6 +290,19 @@ class MainActivity : Activity() {
             }
             REQ_INBOX_ADD, REQ_INBOX_EDIT -> if (resultCode == RESULT_OK && data != null) {
                 handleInboxResult(data)
+            }
+            REQ_OPEN_NOTE -> if (resultCode == RESULT_OK) {
+                val deleted = data?.getBooleanExtra(NoteActivity.EXTRA_DELETED, false) == true
+                if (deleted) {
+                    val item = pendingNoteItem ?: return
+                    val oldTask = todoList.getAll().firstOrNull { it.text == item.task.text } ?: return
+                    val newText = oldTask.text.replace(Regex("""\s*note:[^\s]+"""), "").trim()
+                    todoList.update(oldTask, Task(newText))
+                    pendingCommitMessage = "Remove note: ${Task(newText).displayText.take(40)}"
+                    markDirty()
+                    refreshList()
+                }
+                pendingNoteItem = null
             }
         }
     }
@@ -436,6 +453,15 @@ class MainActivity : Activity() {
                 putStringArrayListExtra(AddEditActivity.EXTRA_ALL_PROJECTS, ArrayList(todoList.allProjects))
             },
             REQ_EDIT_TASK
+        )
+    }
+
+    private fun openNote(item: TaskItem) {
+        val noteId = item.task.noteId ?: return
+        pendingNoteItem = item
+        startActivityForResult(
+            Intent(this, NoteActivity::class.java).putExtra(NoteActivity.EXTRA_NOTE_ID, noteId),
+            REQ_OPEN_NOTE
         )
     }
 

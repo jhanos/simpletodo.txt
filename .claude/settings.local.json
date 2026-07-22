@@ -4,7 +4,15 @@
       "Bash(rtk grep *)",
       "Bash(export JAVA_HOME=/usr/lib/jvm/java-21-openjdk-amd64)",
       "Bash(export JAVA_OPTS=\"-Dhttps.proxyHost=172.23.194.209 -Dhttps.proxyPort=43051 -Dhttp.proxyHost=172.23.194.209 -Dhttp.proxyPort=43051\")",
-      "Bash(rtk gradlew *)"
+      "Bash(rtk gradlew *)",
+      "Bash(rtk read *)",
+      "Bash(rtk find *)",
+      "Bash(/opt/gradle/gradle-8.4/bin/gradle assembleDebug)",
+      "Bash(rtk ls *)",
+      "Bash(keytool -list -keystore ~/.android/debug.keystore -storepass android)",
+      "Bash(/opt/android-sdk/build-tools/34.0.0/apksigner verify *)",
+      "Bash(/opt/android-sdk/build-tools/35.0.1/apksigner verify *)",
+      "Bash(keytool -list -keystore ~/.android/jhanos-android.keystore -storepass android)"
     ]
   }
 }
